@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>坦克对战 2D - 双人键盘对战</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- 密码锁 -->
+  <div id="pwd-lock" style="position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);display:flex;align-items:center;justify-content:center;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <div style="background:rgba(30,41,59,0.9);backdrop-filter:blur(12px);border:1px solid rgba(148,163,184,0.2);border-radius:20px;padding:48px 40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="font-size:48px;margin-bottom:12px;">🎮</div>
+        <h2 style="color:#f1f5f9;margin:0 0 8px 0;font-size:24px;font-weight:700;">坦克对战 2D</h2>
+        <p style="color:#94a3b8;margin:0;font-size:14px;">请输入密码进入游戏</p>
+      </div>
+      <input type="password" id="pwd-input" placeholder="请输入密码" style="width:100%;padding:14px 16px;background:rgba(15,23,42,0.8);border:2px solid #334155;border-radius:12px;color:#f1f5f9;font-size:16px;outline:none;box-sizing:border-box;transition:border-color .2s;" />
+      <div id="pwd-msg" style="min-height:20px;margin-top:10px;font-size:13px;color:#ef4444;text-align:center;"></div>
+      <button id="pwd-btn" style="width:100%;margin-top:16px;padding:14px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 16px rgba(59,130,246,0.3);">进入游戏</button>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <!-- 主菜单 -->
+    <section id="screen-menu" class="screen active">
+      <div class="menu-card">
+        <h1 class="title">坦克对战 <span>2D</span></h1>
+        <p class="subtitle">双人键盘对战 · 7 次中弹决胜负</p>
+        <div class="menu-buttons">
+          <button class="btn primary" data-goto="screen-mapselect">开始对战</button>
+          <button class="btn" data-goto="screen-ai-battle">人机对战</button>
+          <button class="btn" data-goto="screen-editor">地图编辑器</button>
+          <button class="btn" data-goto="screen-help">游戏说明</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 地图选择 -->
+    <section id="screen-mapselect" class="screen">
+      <div class="panel">
+        <h2>选择地图</h2>
+        <div id="map-list" class="map-grid"></div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-menu">返回</button>
+          <button class="btn primary" id="btn-to-customize" disabled>下一步</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 坦克自定义 -->
+    <section id="screen-customize" class="screen">
+      <div class="panel">
+        <h2>选择坦克</h2>
+        <div class="game-options" id="game-options">
+          <label class="opt-toggle">
+            <input type="checkbox" id="opt-bounce" />
+            <span>炮弹钢板反弹(最多 2 次)</span>
+          </label>
+          <label class="opt-toggle">
+            <input type="checkbox" id="opt-powerups" checked />
+            <span>地图刷新技能道具</span>
+          </label>
+        </div>
+        <div class="customize-area">
+          <div class="player-config" data-player="1">
+            <h3>玩家 1 <small>WASD 移动 · 空格射击 · <b>B</b> 技能</small></h3>
+            <canvas class="tank-preview" width="120" height="120"></canvas>
+            <div class="skin-row" id="skin-row-1"></div>
+            <div class="color-row" id="color-row-1"></div>
+            <div class="talent-box" id="talent-box-1"></div>
+            <div class="skill-info" id="skill-info-1"></div>
+          </div>
+          <div class="vs">VS</div>
+          <div class="player-config" data-player="2">
+            <h3>玩家 2 <small>方向键移动 · 回车射击 · <b>L</b> 技能</small></h3>
+            <canvas class="tank-preview" width="120" height="120"></canvas>
+            <div class="skin-row" id="skin-row-2"></div>
+            <div class="color-row" id="color-row-2"></div>
+            <div class="talent-box" id="talent-box-2"></div>
+            <div class="skill-info" id="skill-info-2"></div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-mapselect">返回</button>
+          <button class="btn primary" id="btn-start-game">开战!</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 人机对战 - 地图选择 -->
+    <section id="screen-ai-battle" class="screen">
+      <div class="panel">
+        <h2>人机对战 · 选择地图</h2>
+        <div id="ai-map-list" class="map-grid"></div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-menu">返回</button>
+          <button class="btn primary" id="btn-ai-to-config" disabled>下一步</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 人机对战 - 配置 -->
+    <section id="screen-ai-config" class="screen">
+      <div class="panel">
+        <h2>人机对战配置</h2>
+        <div class="game-options" id="ai-game-options">
+          <label class="opt-toggle">
+            <input type="checkbox" id="ai-opt-bounce" />
+            <span>炮弹钢板反弹(最多 2 次)</span>
+          </label>
+          <label class="opt-toggle">
+            <input type="checkbox" id="ai-opt-powerups" checked />
+            <span>地图刷新技能道具</span>
+          </label>
+        </div>
+        <div class="customize-area">
+          <!-- 玩家1 -->
+          <div class="player-config" data-player="1">
+            <h3>玩家 <small>WASD 移动 · 空格射击 · <b>B</b> 技能</small></h3>
+            <canvas class="tank-preview" width="120" height="120"></canvas>
+            <div class="skin-row" id="ai-skin-row-1"></div>
+            <div class="color-row" id="ai-color-row-1"></div>
+            <div class="talent-box" id="ai-talent-box-1"></div>
+            <div class="skill-info" id="ai-skill-info-1"></div>
+          </div>
+          <div class="vs">VS</div>
+          <!-- 人机配置 -->
+          <div class="player-config ai-config" data-player="2">
+            <h3>人机 <small>由 AI 控制</small></h3>
+            <div class="ai-difficulty-box">
+              <label class="ai-label">难度(攻击强度)</label>
+              <div class="ai-difficulty-row" id="ai-difficulty-row"></div>
+            </div>
+            <canvas class="tank-preview" width="120" height="120"></canvas>
+            <div class="skin-row" id="ai-skin-row-2"></div>
+            <div class="color-row" id="ai-color-row-2"></div>
+            <div class="talent-box" id="ai-talent-box-2"></div>
+            <div class="skill-info" id="ai-skill-info-2"></div>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-ai-battle">返回</button>
+          <button class="btn primary" id="btn-start-ai-game">开战!</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 游戏画面 -->
+    <section id="screen-game" class="screen">
+      <div class="game-hud">
+        <div class="hp-block p1">
+          <div class="hp-top">
+            <span class="hp-label">玩家 1</span>
+            <div class="hp-hearts" id="hp-p1"></div>
+          </div>
+          <div class="skill-hud" id="skill-hud-1"></div>
+          <div class="buff-row" id="buff-row-1"></div>
+        </div>
+        <div class="game-info">
+          <span id="game-map-name"></span>
+          <button class="btn small" id="btn-quit-game">退出</button>
+        </div>
+        <div class="hp-block p2">
+          <div class="hp-top">
+            <span class="hp-label" id="hp-label-p2">玩家 2</span>
+            <div class="hp-hearts" id="hp-p2"></div>
+          </div>
+          <div class="skill-hud" id="skill-hud-2"></div>
+          <div class="buff-row" id="buff-row-2"></div>
+        </div>
+      </div>
+      <canvas id="game-canvas" width="900" height="600"></canvas>
+      <div id="game-overlay" class="game-overlay hidden">
+        <div class="overlay-card">
+          <h2 id="overlay-title"></h2>
+          <p id="overlay-text"></p>
+          <div class="overlay-actions">
+            <button class="btn" id="btn-rematch">再来一局</button>
+            <button class="btn primary" id="btn-back-menu">回到主菜单</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 地图编辑器 -->
+    <section id="screen-editor" class="screen">
+      <div class="panel">
+        <h2>地图编辑器</h2>
+        <div class="editor-layout">
+          <div class="editor-tools">
+            <div class="tool-group">
+              <button class="tool-btn active" data-tool="empty"><span class="swatch empty"></span>清除</button>
+              <button class="tool-btn" data-tool="brick"><span class="swatch brick"></span>砖墙(可摧毁)</button>
+              <button class="tool-btn" data-tool="steel"><span class="swatch steel"></span>钢板(不可摧毁)</button>
+              <button class="tool-btn" data-tool="spawn1"><span class="swatch spawn1">1</span>玩家1出生点</button>
+              <button class="tool-btn" data-tool="spawn2"><span class="swatch spawn2">2</span>玩家2出生点</button>
+            </div>
+            <div class="tool-group">
+              <label>地图名称
+                <input type="text" id="editor-name" maxlength="12" placeholder="我的地图" />
+              </label>
+            </div>
+            <div class="tool-group">
+              <button class="btn small" id="btn-editor-clear">清空</button>
+              <button class="btn small primary" id="btn-editor-save">保存</button>
+              <button class="btn small" id="btn-editor-test">试玩</button>
+            </div>
+            <p class="editor-hint">左键绘制 · 右键擦除 · 拖动连续绘制</p>
+          </div>
+          <canvas id="editor-canvas" width="900" height="600"></canvas>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-menu">返回主菜单</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 游戏说明 -->
+    <section id="screen-help" class="screen">
+      <div class="panel">
+        <h2>游戏说明</h2>
+        <div class="help-content">
+          <div class="help-col">
+            <h3>玩家 1</h3>
+            <ul>
+              <li><b>W</b> 上 / <b>S</b> 下 / <b>A</b> 左 / <b>D</b> 右</li>
+              <li><b>空格</b> 发射炮弹</li>
+              <li><b>B</b> 释放皮肤技能</li>
+            </ul>
+          </div>
+          <div class="help-col">
+            <h3>玩家 2</h3>
+            <ul>
+              <li><b>↑</b> 上 / <b>↓</b> 下 / <b>←</b> 左 / <b>→</b> 右</li>
+              <li><b>回车</b> 发射炮弹</li>
+              <li><b>L</b> 释放皮肤技能</li>
+            </ul>
+          </div>
+        </div>
+        <div class="help-rules">
+          <h3>规则与系统</h3>
+          <ul>
+            <li>基础 <b>7 点生命</b>,可被天赋与道具增强,归零即败。</li>
+            <li>砖墙(橙色)可被炮弹摧毁,钢板(灰色)坚不可摧。</li>
+            <li><b>天赋</b>:每人 5 点,分配到 防御(+生命)/速度(+移速)/攻击(+炮弹伤害)。</li>
+            <li><b>皮肤技能</b>:经典=三连射击;重型=钢铁护盾;突击=极速冲刺;守卫=紧急修复。</li>
+            <li><b>地图道具</b>:血+ / 连发 / 2x攻 / 加速 / 护盾,捡到即生效。</li>
+            <li><b>钢板反弹</b>(可选):炮弹碰钢板最多反弹 2 次,第 3 次消失。</li>
+            <li><b>人机对战</b>:可选 4 档难度(新手/普通/困难/噩梦),难度越高 AI 攻击越凶猛、反应越快、技能使用越精明。</li>
+          </ul>
+        </div>
+        <div class="panel-actions">
+          <button class="btn primary" data-goto="screen-menu">明白了</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/maps.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/tank.js"></script>
+  <script src="js/bullet.js"></script>
+  <script src="js/block.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+  (function() {
+    var PWD_KEY = 'tank_game_pwd_v1';
+    var CORRECT_PWD = 'hkdzbk@2608';
+    var lock = document.getElementById('pwd-lock');
+    var app = document.getElementById('app');
+    var input = document.getElementById('pwd-input');
+    var btn = document.getElementById('pwd-btn');
+    var msg = document.getElementById('pwd-msg');
+
+    function unlock() {
+      lock.style.display = 'none';
+      app.style.display = 'block';
+      localStorage.setItem(PWD_KEY, '1');
+    }
+
+    function checkPwd() {
+      var val = input.value.trim();
+      if (!val) {
+        msg.textContent = '请输入密码';
+        return;
+      }
+      if (val === CORRECT_PWD) {
+        msg.textContent = '';
+        unlock();
+      } else {
+        msg.textContent = '密码错误，请重试';
+        input.value = '';
+        input.focus();
+        btn.style.animation = 'none';
+        setTimeout(function() { btn.style.animation = ''; }, 10);
+      }
+    }
+
+    // 自动检查已验证状态
+    if (localStorage.getItem(PWD_KEY) === '1') {
+      unlock();
+    }
+
+    btn.addEventListener('click', checkPwd);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') checkPwd();
+    });
+    setTimeout(function() { input.focus(); }, 100);
+  })();
+  </script>
+</body>
+</html>
