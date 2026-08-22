@@ -21,6 +21,9 @@ const App = {
     this.initEditor();
     this.initGameLifecycle();
     this.initAIBattle();
+    // 音效系统:首次点击任意按钮时初始化
+    document.body.addEventListener('click', () => SFX.init(), { once: true });
+    document.body.addEventListener('keydown', () => SFX.init(), { once: true });
   },
 
   // 通用界面跳转
@@ -416,7 +419,7 @@ const App = {
     });
   },
 
-  // 技能 HUD + buff
+  // 技能 HUD + buff + 武器
   updateStateHud(stateList) {
     stateList.forEach(s => {
       const hud = document.getElementById('skill-hud-' + s.player);
@@ -426,12 +429,14 @@ const App = {
       hud.classList.toggle('ready', ready);
       const cdText = ready ? '就绪' : `${s.skillCd}s`;
       const pct = ready ? 100 : Math.max(0, 100 - (s.skillCd / (SKILL_DEF[this.skinIdOf(s.player)] ? SKILL_DEF[this.skinIdOf(s.player)].cd : 16)) * 100);
+      const grenadeKey = s.player === 1 ? 'G' : ',';
+      const missileKey = s.player === 1 ? 'H' : '.';
       hud.innerHTML =
         `<span class="sk-key">${key}</span>` +
         `<span class="sk-name">${s.skillName}</span>` +
         `<span class="sk-cd">${cdText}</span>` +
         `<span class="sk-bar"><i style="width:${pct}%"></i></span>`;
-      // buffs
+      // buffs + 武器
       buffRow.innerHTML = '';
       const buffMeta = {
         rapid: ['连发', '#f59e0b'],
@@ -449,6 +454,15 @@ const App = {
           buffRow.appendChild(chip);
         }
       });
+      // 武器显示
+      const gChip = document.createElement('span');
+      gChip.className = 'buff-chip weapon-chip';
+      gChip.innerHTML = `<span class="dot" style="background:#f97316"></span>${grenadeKey} 手榴弹 x${s.grenades}`;
+      buffRow.appendChild(gChip);
+      const mChip = document.createElement('span');
+      mChip.className = 'buff-chip weapon-chip';
+      mChip.innerHTML = `<span class="dot" style="background:#ef4444"></span>${missileKey} 导弹 x${s.missiles}`;
+      buffRow.appendChild(mChip);
     });
   },
 
@@ -487,15 +501,14 @@ const App = {
 
   // 键盘事件(全局,但只在游戏中处理移动键)
   initGameKeys() {
-    // 玩家2的方向键/回车/L 在人机模式下交给AI控制,不拦截真实键盘
-    const gameCodes = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'];
-    const aiControlledCodes = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'KeyL'];
+    // 玩家2的所有按键在人机模式下交给AI控制
+    const gameCodes = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter', 'Comma', 'Period'];
+    const aiControlledCodes = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'KeyL', 'Comma', 'Period'];
     const isInput = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
     window.addEventListener('keydown', (e) => {
       if (this.game && this.game.running && !isInput(e.target)) {
-        // 人机模式下,AI控制的按键不被真实键盘覆盖
         if (this.aiMode && aiControlledCodes.includes(e.code)) return;
-        if (gameCodes.includes(e.code)) e.preventDefault();
+        if (gameCodes.includes(e.code) || e.code === 'KeyG' || e.code === 'KeyH' || e.code === 'KeyB') e.preventDefault();
         this.game.setKey(e.code, true);
       }
     });

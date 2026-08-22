@@ -64,7 +64,7 @@
         </div>
         <div class="customize-area">
           <div class="player-config" data-player="1">
-            <h3>玩家 1 <small>WASD 移动 · 空格射击 · <b>B</b> 技能</small></h3>
+            <h3>玩家 1 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
             <canvas class="tank-preview" width="120" height="120"></canvas>
             <div class="skin-row" id="skin-row-1"></div>
             <div class="color-row" id="color-row-1"></div>
@@ -73,7 +73,7 @@
           </div>
           <div class="vs">VS</div>
           <div class="player-config" data-player="2">
-            <h3>玩家 2 <small>方向键移动 · 回车射击 · <b>L</b> 技能</small></h3>
+            <h3>玩家 2 <small>方向键 · 回车射击 · <b>L</b>技能 · <b>,</b>手榴弹 · <b>.</b>导弹</small></h3>
             <canvas class="tank-preview" width="120" height="120"></canvas>
             <div class="skin-row" id="skin-row-2"></div>
             <div class="color-row" id="color-row-2"></div>
@@ -117,7 +117,7 @@
         <div class="customize-area">
           <!-- 玩家1 -->
           <div class="player-config" data-player="1">
-            <h3>玩家 <small>WASD 移动 · 空格射击 · <b>B</b> 技能</small></h3>
+            <h3>玩家 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
             <canvas class="tank-preview" width="120" height="120"></canvas>
             <div class="skin-row" id="ai-skin-row-1"></div>
             <div class="color-row" id="ai-color-row-1"></div>
@@ -227,14 +227,18 @@
               <li><b>W</b> 上 / <b>S</b> 下 / <b>A</b> 左 / <b>D</b> 右</li>
               <li><b>空格</b> 发射炮弹</li>
               <li><b>B</b> 释放皮肤技能</li>
+              <li><b>G</b> 投掷手榴弹 (4颗)</li>
+              <li><b>H</b> 发射追踪导弹 (1颗)</li>
             </ul>
           </div>
           <div class="help-col">
             <h3>玩家 2</h3>
             <ul>
-              <li><b>↑</b> 上 / <b>↓</b> 下 / <b>←</b> 左 / <b>→</b> 右</li>
+              <li><b>↑↓←→</b> 移动</li>
               <li><b>回车</b> 发射炮弹</li>
               <li><b>L</b> 释放皮肤技能</li>
+              <li><b>,</b> 投掷手榴弹 (4颗)</li>
+              <li><b>.</b> 发射追踪导弹 (1颗)</li>
             </ul>
           </div>
         </div>
@@ -244,10 +248,13 @@
             <li>基础 <b>7 点生命</b>,可被天赋与道具增强,归零即败。</li>
             <li>砖墙(橙色)可被炮弹摧毁,钢板(灰色)坚不可摧。</li>
             <li><b>天赋</b>:每人 5 点,分配到 防御(+生命)/速度(+移速)/攻击(+炮弹伤害)。</li>
-            <li><b>皮肤技能</b>:经典=三连射击;重型=钢铁护盾;突击=极速冲刺;守卫=紧急修复。</li>
+            <li><b>皮肤技能</b>:经典=三连射击;重型=钢铁护盾;突击=极速冲刺;守卫=紧急修复;机枪=弹幕扫射。</li>
+            <li><b>机关枪坦克</b>:天生连发,射速远超其他坦克,技能为扇形 5 发高速弹幕。</li>
+            <li><b>手榴弹</b>(4颗):沿朝向飞出,1.5 秒引信,爆炸范围伤害 2 点+毁砖,可被子弹击毁。</li>
+            <li><b>追踪导弹</b>(1颗):自动追踪敌方坦克,爆炸范围伤害 3 点+毁砖,可被子弹击毁。</li>
             <li><b>地图道具</b>:血+ / 连发 / 2x攻 / 加速 / 护盾,捡到即生效。</li>
             <li><b>钢板反弹</b>(可选):炮弹碰钢板最多反弹 2 次,第 3 次消失。</li>
-            <li><b>人机对战</b>:可选 4 档难度(新手/普通/困难/噩梦),难度越高 AI 攻击越凶猛、反应越快、技能使用越精明。</li>
+            <li><b>人机对战</b>:6 档难度(菜鸟/新手/普通/困难/噩梦/地狱),难度越高 AI 攻击越凶猛、预判越精准、会使用手榴弹和导弹。</li>
           </ul>
         </div>
         <div class="panel-actions">
@@ -259,9 +266,11 @@
 
   <script src="js/maps.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/tank.js"></script>
   <script src="js/bullet.js"></script>
   <script src="js/block.js"></script>
+  <script src="js/weapons.js"></script>
   <script src="js/game.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/editor.js"></script>
@@ -295,12 +304,9 @@
         msg.textContent = '密码错误，请重试';
         input.value = '';
         input.focus();
-        btn.style.animation = 'none';
-        setTimeout(function() { btn.style.animation = ''; }, 10);
       }
     }
 
-    // 自动检查已验证状态
     if (localStorage.getItem(PWD_KEY) === '1') {
       unlock();
     }

@@ -178,6 +178,7 @@ class PowerUp {
         tk.applyPowerUp(this.kind);
         this.dead = true;
         game.spawnExplosion(this.x, this.y, 'spark');
+        SFX.play('powerup');
         if (game.onLog) game.onLog(`玩家${tk.player} 拾取 ${POWERUP_META[this.kind].label}`);
         return;
       }

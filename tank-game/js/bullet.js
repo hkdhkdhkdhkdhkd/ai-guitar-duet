@@ -38,6 +38,7 @@ class Bullet {
         // 砖墙:摧毁,炮弹消失(不反弹)
         game.grid[cellY][cellX] = 0;
         game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
+        SFX.play('brick');
         this.dead = true;
         return;
       } else if (v2 === 2) {
@@ -46,11 +47,13 @@ class Bullet {
           this.bounces--;
           this.dir = (this.dir + 2) % 4;   // 反向
           game.spawnExplosion(this.x, this.y, 'spark');
+          SFX.play('bounce');
           // 不前进,留在外侧,下一帧反向运动
           return;
         } else {
           this.dead = true;
           game.spawnExplosion(nx, ny, 'spark');
+          SFX.play('spark');
           return;
         }
       }
@@ -69,6 +72,7 @@ class Bullet {
         const before = t.hp;
         if (t.hit(this.damage)) {
           game.spawnExplosion(this.x, this.y, 'hit');
+          SFX.play('hit');
           game.onTankHit(t, before, this.damage);
         }
         this.dead = true;
@@ -84,6 +88,7 @@ class Bullet {
         if (dx * dx + dy * dy < 16) {
           this.dead = true; b.dead = true;
           game.spawnExplosion(this.x, this.y, 'spark');
+          SFX.play('spark');
           return;
         }
       }

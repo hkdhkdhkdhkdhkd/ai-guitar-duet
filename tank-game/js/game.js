@@ -8,6 +8,8 @@ class Game {
     this.bullets = [];
     this.particles = [];
     this.powerups = [];
+    this.grenades = [];
+    this.missiles = [];
     this.keys = {};
     this.running = false;
     this.lastTime = 0;
@@ -40,10 +42,12 @@ class Game {
     this.powerupsEnabled = opts.powerups !== false;
     this.aiEnabled = !!opts.ai;
     const t1 = new Tank(1, this.spawn1.x, this.spawn1.y, p1Config.color, p1Config.skin, {
-      up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'Space', skill: 'KeyB'
+      up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'Space', skill: 'KeyB',
+      grenade: 'KeyG', missile: 'KeyH'
     }, p1Config.talents);
     const t2 = new Tank(2, this.spawn2.x, this.spawn2.y, p2Config.color, p2Config.skin, {
-      up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'Enter', skill: 'KeyL'
+      up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'Enter', skill: 'KeyL',
+      grenade: 'Comma', missile: 'Period'
     }, p2Config.talents);
     t1.dir = DIR.RIGHT;
     t2.dir = DIR.LEFT;
@@ -51,6 +55,8 @@ class Game {
     this.bullets = [];
     this.particles = [];
     this.powerups = [];
+    this.grenades = [];
+    this.missiles = [];
     this.winner = null;
     this.frame = 0;
     this.powerupTimer = 60 * 6;
@@ -92,6 +98,10 @@ class Game {
     for (const t of this.tanks) t.update(this.keys, this);
     for (const b of this.bullets) b.update(this);
     this.bullets = this.bullets.filter(b => !b.dead);
+    for (const g of this.grenades) g.update(this);
+    this.grenades = this.grenades.filter(g => !g.dead);
+    for (const m of this.missiles) m.update(this);
+    this.missiles = this.missiles.filter(m => !m.dead);
     for (const p of this.particles) p.update();
     this.particles = this.particles.filter(p => !p.dead);
     for (const pu of this.powerups) pu.update(this);
@@ -115,6 +125,7 @@ class Game {
       if (alive.length <= 1) {
         this.winner = alive.length === 1 ? alive[0] : null;
         const w = this.winner;
+        if (w) SFX.play(w.player === 1 ? 'win' : 'lose');
         setTimeout(() => {
           if (!this.running || this.winner !== w) return;
           this.onGameOver && this.onGameOver(w);
@@ -158,6 +169,8 @@ class Game {
     for (const pu of this.powerups) pu.draw(ctx);
     for (const t of this.tanks) t.draw(ctx);
     for (const b of this.bullets) b.draw(ctx);
+    for (const g of this.grenades) g.draw(ctx);
+    for (const m of this.missiles) m.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
   }
 
@@ -191,6 +204,8 @@ class Game {
       skillDesc: SKILL_DEF[t.skin].desc,
       skillCd: Math.ceil(t.skillCd / 60),
       skillReady: t.skillCd <= 0,
+      grenades: t.grenades,
+      missiles: t.missiles,
       buffs: {
         rapid: t.rapidTimer > 0 ? Math.ceil(t.rapidTimer / 60) : 0,
         power: t.powerTimer > 0 ? Math.ceil(t.powerTimer / 60) : 0,

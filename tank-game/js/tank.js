@@ -4,6 +4,7 @@ const TANK_SKINS = [
   { id: 'heavy',   name: '重型' },
   { id: 'scout',   name: '突击' },
   { id: 'shield',  name: '守卫' },
+  { id: 'gunner',  name: '机枪' },
 ];
 
 const TANK_COLORS = [
@@ -37,6 +38,7 @@ const SKILL_DEF = {
   heavy:   { name: '钢铁护盾', desc: '5 秒无敌', cd: 18 },
   scout:   { name: '极速冲刺', desc: '2.5 秒移速 x2.2', cd: 15 },
   shield:  { name: '紧急修复', desc: '恢复 3 点血量', cd: 18 },
+  gunner:  { name: '弹幕扫射', desc: '扇形发射 5 发高速弹', cd: 14 },
 };
 
 class Tank {
@@ -45,7 +47,7 @@ class Tank {
     this.size = 24;
     this.color = color;
     this.skin = skin;
-    this.controls = controls;      // {up,down,left,right,fire,skill}
+    this.controls = controls;      // {up,down,left,right,fire,skill,grenade,missile}
     this.talents = talents || { defense: 0, speed: 0, attack: 0 };
 
     this.x = gridX * CELL + CELL / 2;
@@ -60,7 +62,8 @@ class Tank {
 
     this.hp = this.maxHp;
     this.alive = true;
-    this.cooldownMax = 22;
+    // 机关枪坦克:天生连发(冷却更短),其他正常
+    this.cooldownMax = skin === 'gunner' ? 10 : 22;
     this.fireCooldown = 0;
     this.invuln = 60;          // 出生短暂无敌
 
@@ -68,6 +71,12 @@ class Tank {
     this.skillCd = 0;
     this.skillCdMax = SKILL_DEF[skin].cd * 60;
     this.prevSkill = false;
+
+    // 武器:手榴弹4颗 + 追踪导弹1颗
+    this.grenades = 4;
+    this.missiles = 1;
+    this.prevGrenade = false;
+    this.prevMissile = false;
 
     // buff 计时(帧)
     this.rapidTimer = 0;
@@ -128,6 +137,20 @@ class Tank {
       this.useSkill(game);
     }
     this.prevSkill = sk;
+
+    // 手榴弹(按下边沿触发)
+    const gr = !!keys[c.grenade];
+    if (gr && !this.prevGrenade && this.grenades > 0) {
+      this.throwGrenade(game);
+    }
+    this.prevGrenade = gr;
+
+    // 追踪导弹(按下边沿触发)
+    const ms = !!keys[c.missile];
+    if (ms && !this.prevMissile && this.missiles > 0) {
+      this.launchMissile(game);
+    }
+    this.prevMissile = ms;
   }
 
   // 吸附到轨道中线,但每步都做碰撞检测,绝不穿墙
@@ -206,6 +229,7 @@ class Tank {
     const dmg = this.attack * (this.powerTimer > 0 ? 2 : 1);
     const bounces = game.bounce ? 2 : 0;
     game.bullets.push(new Bullet(bx, by, this.dir, this.player, this.color, dmg, bounces));
+    SFX.play(this.skin === 'gunner' ? 'mg' : 'shoot');
   }
 
   useSkill(game) {
@@ -235,8 +259,45 @@ class Tank {
       this.hp = Math.min(this.maxHp, this.hp + 3);
       game.spawnExplosion(this.x, this.y, 'spark');
       game.notifyHp();
+    } else if (skin === 'gunner') {
+      // 弹幕扫射: 5 发扇形高速弹
+      const v = DIR_VEC[this.dir];
+      const perp = { x: -v.y, y: v.x };
+      const dmg = this.attack * (this.powerTimer > 0 ? 2 : 1);
+      const bounces = game.bounce ? 2 : 0;
+      for (const off of [-16, -8, 0, 8, 16]) {
+        const bx = this.x + v.x * (this.half + 4) + perp.x * off;
+        const by = this.y + v.y * (this.half + 4) + perp.y * off;
+        const b = new Bullet(bx, by, this.dir, this.player, this.color, dmg, bounces);
+        b.speed = 6.5;  // 高速弹
+        game.bullets.push(b);
+      }
+      game.spawnExplosion(this.x + v.x * (this.half + 6), this.y + v.y * (this.half + 6), 'spark');
     }
+    SFX.play('skill');
     if (game.onLog) game.onLog(`玩家${this.player} 释放技能: ${SKILL_DEF[skin].name}`);
+  }
+
+  // 投掷手榴弹
+  throwGrenade(game) {
+    this.grenades--;
+    const v = DIR_VEC[this.dir];
+    const gx = this.x + v.x * (this.half + 6);
+    const gy = this.y + v.y * (this.half + 6);
+    game.grenades.push(new Grenade(gx, gy, this.dir, this.player, this.color));
+    SFX.play('grenade');
+    if (game.onLog) game.onLog(`玩家${this.player} 投掷手榴弹 (剩余${this.grenades})`);
+  }
+
+  // 发射追踪导弹
+  launchMissile(game) {
+    this.missiles--;
+    const v = DIR_VEC[this.dir];
+    const mx = this.x + v.x * (this.half + 6);
+    const my = this.y + v.y * (this.half + 6);
+    game.missiles.push(new Missile(mx, my, this.dir, this.player, this.color));
+    SFX.play('missile');
+    if (game.onLog) game.onLog(`玩家${this.player} 发射追踪导弹 (剩余${this.missiles})`);
   }
 
   applyPowerUp(kind) {
@@ -371,6 +432,38 @@ function drawTankBody(ctx, skin, color, player, invuln) {
     ctx.fillRect(-2.5, -half - 4, 5, 10);
     ctx.fillStyle = shadeColor(color, 30);
     ctx.beginPath(); ctx.arc(0, 1, 2, 0, Math.PI * 2); ctx.fill();
+  } else if (skin === 'gunner') {
+    // 机关枪坦克: 双管炮 + 弹药箱
+    ctx.fillStyle = tread;
+    ctx.fillRect(-half, -half, 5, half * 2);
+    ctx.fillRect(half - 5, -half, 5, half * 2);
+    ctx.fillStyle = '#4b5563';
+    for (let i = -half + 2; i < half - 2; i += 4) {
+      ctx.fillRect(-half + 0.5, i, 4, 2);
+      ctx.fillRect(half - 4.5, i, 4, 2);
+    }
+    roundRect(ctx, -half + 5, -half + 2, half * 2 - 10, half * 2 - 4, 3);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = dark; ctx.lineWidth = 1.5; ctx.stroke();
+    // 弹药箱(右侧)
+    ctx.fillStyle = shadeColor(color, -25);
+    ctx.fillRect(half - 8, -3, 4, 6);
+    ctx.strokeStyle = '#1f2937';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(half - 8, -3, 4, 6);
+    // 双管炮
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(-2, -half - 6, 3, 10);
+    ctx.fillRect(0, -half - 6, 3, 10);
+    // 枪口
+    ctx.fillStyle = '#374151';
+    ctx.fillRect(-2, -half - 7, 3, 2);
+    ctx.fillRect(0, -half - 7, 3, 2);
+    // 中心圆
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shadeColor(color, 40);
+    ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
   ctx.fillStyle = player === 1 ? '#fff' : '#fde68a';

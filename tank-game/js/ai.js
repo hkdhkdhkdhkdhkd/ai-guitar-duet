@@ -1,12 +1,14 @@
 // 人机对战 AI 引擎
-// 难度: easy(新手) / medium(普通) / hard(困难) / nightmare(噩梦)
+// 难度: noob(菜鸟) / easy(新手) / medium(普通) / hard(困难) / nightmare(噩梦) / hell(地狱)
 // 通过模拟玩家2的按键来控制坦克
 
 const AI_DIFFICULTY = {
-  easy:      { name: '新手',  decisionInterval: 28, fireChance: 0.35, leadFactor: 0.0, dodgeChance: 0.10, skillChance: 0.15, wanderChance: 0.35, aimTolerance: 3 },
-  medium:    { name: '普通',  decisionInterval: 16, fireChance: 0.60, leadFactor: 0.4, dodgeChance: 0.35, skillChance: 0.35, wanderChance: 0.18, aimTolerance: 2 },
-  hard:      { name: '困难',  decisionInterval: 9,  fireChance: 0.82, leadFactor: 0.7, dodgeChance: 0.60, skillChance: 0.55, wanderChance: 0.08, aimTolerance: 1 },
-  nightmare: { name: '噩梦',  decisionInterval: 5,  fireChance: 0.95, leadFactor: 0.9, dodgeChance: 0.82, skillChance: 0.75, wanderChance: 0.03, aimTolerance: 1 },
+  noob:      { name: '菜鸟',  decisionInterval: 40, fireChance: 0.18, leadFactor: 0.0, dodgeChance: 0.03, skillChance: 0.05, wanderChance: 0.55, aimTolerance: 4, grenadeChance: 0.05, missileChance: 0.0,  retreatHp: 0.15 },
+  easy:      { name: '新手',  decisionInterval: 28, fireChance: 0.35, leadFactor: 0.0, dodgeChance: 0.10, skillChance: 0.15, wanderChance: 0.35, aimTolerance: 3, grenadeChance: 0.15, missileChance: 0.05, retreatHp: 0.20 },
+  medium:    { name: '普通',  decisionInterval: 16, fireChance: 0.60, leadFactor: 0.4, dodgeChance: 0.35, skillChance: 0.35, wanderChance: 0.18, aimTolerance: 2, grenadeChance: 0.35, missileChance: 0.20, retreatHp: 0.30 },
+  hard:      { name: '困难',  decisionInterval: 9,  fireChance: 0.82, leadFactor: 0.7, dodgeChance: 0.60, skillChance: 0.55, wanderChance: 0.08, aimTolerance: 1, grenadeChance: 0.55, missileChance: 0.40, retreatHp: 0.35 },
+  nightmare: { name: '噩梦',  decisionInterval: 5,  fireChance: 0.95, leadFactor: 0.9, dodgeChance: 0.82, skillChance: 0.75, wanderChance: 0.03, aimTolerance: 1, grenadeChance: 0.75, missileChance: 0.65, retreatHp: 0.40 },
+  hell:      { name: '地狱',  decisionInterval: 3,  fireChance: 0.99, leadFactor: 1.0, dodgeChance: 0.95, skillChance: 0.90, wanderChance: 0.01, aimTolerance: 0, grenadeChance: 0.90, missileChance: 0.85, retreatHp: 0.45 },
 };
 
 class TankAI {
@@ -15,27 +17,36 @@ class TankAI {
     this.meta = AI_DIFFICULTY[this.difficulty] || AI_DIFFICULTY.medium;
     this.game = game;
     this.tank = game.tanks[1];  // 玩家2
-    this.target = null;        // 目标坦克(玩家1)
+    this.target = null;
     this.tick = 0;
     this.lastDecision = -999;
-    this.currentDir = null;    // 当前移动方向代码: 'up','down','left','right',null
-    this.dirHoldTime = 0;      // 当前方向持续帧数
-    this.stuckTimer = 0;       // 卡住计时
+    this.currentDir = null;
+    this.dirHoldTime = 0;
+    this.stuckTimer = 0;
     this.lastX = 0;
     this.lastY = 0;
     this.skillPressed = false;
-    this.firePressed = false;
+    this.grenadePressed = false;
+    this.missilePressed = false;
+    this.lastGrenadeAttempt = -999;
+    this.lastMissileAttempt = -999;
+    // 高难度: 预测目标移动方向
+    this.targetLastX = 0;
+    this.targetLastY = 0;
+    this.targetVelX = 0;
+    this.targetVelY = 0;
   }
 
-  // 每帧调用
   update() {
     this.tick++;
-    // 更新目标
     this.target = this.game.tanks.find(t => t.player !== this.tank.player && t.alive);
     if (!this.target || !this.tank.alive) {
       this.releaseAllKeys();
       return;
     }
+
+    // 追踪目标速度(用于预判射击)
+    this.trackTargetVelocity();
 
     // 按决策间隔更新方向决策
     if (this.tick - this.lastDecision >= this.meta.decisionInterval) {
@@ -43,12 +54,23 @@ class TankAI {
       this.makeDecision();
     }
 
-    // 实时射击和技能判断(更频繁)
+    // 实时射击和技能/武器判断
     this.handleFire();
     this.handleSkill();
+    this.handleGrenade();
+    this.handleMissile();
 
     // 卡住检测
     this.checkStuck();
+  }
+
+  // 追踪目标速度
+  trackTargetVelocity() {
+    const t = this.target;
+    this.targetVelX = t.x - this.targetLastX;
+    this.targetVelY = t.y - this.targetLastY;
+    this.targetLastX = t.x;
+    this.targetLastY = t.y;
   }
 
   makeDecision() {
@@ -56,25 +78,31 @@ class TankAI {
     this.applyMovement(action);
   }
 
-  // 选择最佳移动方向
   chooseAction() {
     const opts = [];
     const me = this.tank;
     const tgt = this.target;
 
-    // 1. 紧急躲避:如果有子弹飞向自己
-    const dodgeDir = this.checkIncomingBullets();
+    // 1. 紧急躲避:如果有子弹/导弹飞向自己
+    const dodgeDir = this.checkIncomingThreats();
     if (dodgeDir && Math.random() < this.meta.dodgeChance) {
       return dodgeDir;
     }
 
-    // 2. 道具拾取:如果附近有道具且不难度低时概率前往
-    const puDir = this.findNearestPowerUp();
-    if (puDir && (me.hp < me.maxHp * 0.5 || Math.random() < 0.3)) {
-      opts.push({ dir: puDir, weight: 3 });
+    // 2. 低血量撤退(高难度更积极)
+    const hpRatio = me.hp / me.maxHp;
+    if (hpRatio < this.meta.retreatHp) {
+      const retDir = this.retreatDirection(tgt);
+      if (retDir && this.canMove(retDir)) return retDir;
     }
 
-    // 3. 战术移动:根据与目标的关系选择
+    // 3. 道具拾取
+    const puDir = this.findNearestPowerUp();
+    if (puDir && (hpRatio < 0.5 || Math.random() < 0.3)) {
+      opts.push({ dir: puDir, weight: 4 });
+    }
+
+    // 4. 战术移动
     const dx = tgt.x - me.x;
     const dy = tgt.y - me.y;
     const adx = Math.abs(dx);
@@ -82,25 +110,21 @@ class TankAI {
 
     // 如果在同一行/列且视线清晰 -> 停下瞄准射击
     if (this.hasLineOfSight(me, tgt)) {
-      // 已对准则停下
-      if (adx < CELL * 0.6 && this.isAimingAt(me, tgt, DIR.LEFT, DIR.RIGHT)) {
-        return null; // 停下射击
+      if (adx < CELL * 0.6 && (me.dir === DIR.LEFT || me.dir === DIR.RIGHT)) {
+        return null;
       }
-      if (ady < CELL * 0.6 && this.isAimingAt(me, tgt, DIR.UP, DIR.DOWN)) {
+      if (ady < CELL * 0.6 && (me.dir === DIR.UP || me.dir === DIR.DOWN)) {
         return null;
       }
     }
 
-    // 4. 向目标靠近:优先选择能接近目标且不被阻挡的方向
+    // 5. 向目标靠近
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const idealDist = this.difficulty === 'easy' ? 8 * CELL : this.difficulty === 'medium' ? 6 * CELL : 4 * CELL;
+    const idealDist = this.idealDistance();
 
-    // 尝试朝目标方向移动
     if (adx > ady) {
-      // 水平接近
       if (dx > 0) opts.push({ dir: 'right', weight: 5 });
       else opts.push({ dir: 'left', weight: 5 });
-      // 同时也需要垂直对齐
       if (dy > 0) opts.push({ dir: 'down', weight: 3 });
       else opts.push({ dir: 'up', weight: 3 });
     } else {
@@ -110,29 +134,34 @@ class TankAI {
       else opts.push({ dir: 'left', weight: 3 });
     }
 
-    // 5. 保持距离:如果太近则后退
+    // 6. 保持距离:如果太近则后退
     if (dist < idealDist * 0.5) {
       if (adx > ady) {
-        if (dx > 0) opts.push({ dir: 'left', weight: 4 });
-        else opts.push({ dir: 'right', weight: 4 });
+        if (dx > 0) opts.push({ dir: 'left', weight: 5 });
+        else opts.push({ dir: 'right', weight: 5 });
       } else {
-        if (dy > 0) opts.push({ dir: 'up', weight: 4 });
-        else opts.push({ dir: 'down', weight: 4 });
+        if (dy > 0) opts.push({ dir: 'up', weight: 5 });
+        else opts.push({ dir: 'down', weight: 5 });
       }
     }
 
-    // 6. 随机游走(低难度更频繁)
+    // 7. 高难度: 尝试绕侧(如果视线被挡)
+    if (this.meta.leadFactor >= 0.7 && !this.hasLineOfSight(me, tgt)) {
+      const flankDir = this.findFlankDirection(tgt);
+      if (flankDir) opts.push({ dir: flankDir, weight: 6 });
+    }
+
+    // 8. 随机游走
     if (Math.random() < this.meta.wanderChance) {
       const dirs = ['up', 'down', 'left', 'right'];
       opts.push({ dir: dirs[Math.floor(Math.random() * 4)], weight: 2 });
     }
 
-    // 筛选可行方向(不撞墙)
+    // 筛选可行方向
     const valid = opts.filter(o => this.canMove(o.dir));
     if (valid.length === 0) {
-      // 全不行,尝试任何方向
-      const all = [{ dir: 'up' }, { dir: 'down' }, { dir: 'left' }, { dir: 'right' }].filter(o => this.canMove(o.dir));
-      if (all.length > 0) return all[0].dir;
+      const all = ['up', 'down', 'left', 'right'].filter(d => this.canMove(d));
+      if (all.length > 0) return all[Math.floor(Math.random() * all.length)];
       return null;
     }
 
@@ -146,38 +175,112 @@ class TankAI {
     return valid[0].dir;
   }
 
-  // 检测来袭子弹,返回躲避方向
-  checkIncomingBullets() {
+  idealDistance() {
+    switch (this.difficulty) {
+      case 'noob': return 10 * CELL;
+      case 'easy': return 8 * CELL;
+      case 'medium': return 6 * CELL;
+      case 'hard': return 5 * CELL;
+      case 'nightmare': return 4 * CELL;
+      case 'hell': return 3.5 * CELL;
+      default: return 6 * CELL;
+    }
+  }
+
+  // 检测来袭子弹和导弹,返回躲避方向
+  checkIncomingThreats() {
     const me = this.tank;
+    // 检查子弹
     for (const b of this.game.bullets) {
       if (b.dead || b.owner === me.player) continue;
-      const dx = b.x - me.x;
-      const dy = b.y - me.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > CELL * 4) continue;
-
-      const bv = DIR_VEC[b.dir];
-      // 子弹朝向自己?
-      const towardMe = (bv.x * (me.x - b.x) + bv.y * (me.y - b.y)) > 0;
-      if (!towardMe) continue;
-
-      // 是否在同一线上(水平或垂直)
-      if (bv.x !== 0) {
-        // 水平子弹,垂直距离近
-        if (Math.abs(dy) < me.half + 4) {
-          // 向上或下躲
-          return Math.random() < 0.5 ? 'up' : 'down';
-        }
-      } else {
-        if (Math.abs(dx) < me.half + 4) {
-          return Math.random() < 0.5 ? 'left' : 'right';
-        }
+      const dodgeDir = this.checkThreat(b.x, b.y, DIR_VEC[b.dir], me);
+      if (dodgeDir) return dodgeDir;
+    }
+    // 检查导弹(高难度才会关注导弹)
+    if (this.meta.dodgeChance > 0.3) {
+      for (const m of this.game.missiles) {
+        if (m.dead || m.owner === me.player) continue;
+        const mvx = Math.cos(m.angle);
+        const mvy = Math.sin(m.angle);
+        const dodgeDir = this.checkThreat(m.x, m.y, { x: mvx, y: mvy }, me);
+        if (dodgeDir) return dodgeDir;
       }
     }
     return null;
   }
 
-  // 寻找最近道具方向
+  checkThreat(bx, by, bv, me) {
+    const dx = bx - me.x;
+    const dy = by - me.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > CELL * 5) return null;
+    // 威胁朝向自己?
+    const towardMe = (bv.x * (me.x - bx) + bv.y * (me.y - by)) > 0;
+    if (!towardMe) return null;
+    if (bv.x !== 0) {
+      if (Math.abs(dy) < me.half + 6) {
+        // 水平威胁,垂直躲避(选更安全的一侧)
+        return this.saferVerticalDir(me);
+      }
+    } else if (bv.y !== 0) {
+      if (Math.abs(dx) < me.half + 6) {
+        return this.saferHorizontalDir(me);
+      }
+    } else {
+      // 导弹有任意角度,选垂直于来袭方向的躲避
+      const perpX = -bv.y, perpY = bv.x;
+      if (Math.abs(perpX) > Math.abs(perpY)) {
+        return perpX > 0 ? 'right' : 'left';
+      } else {
+        return perpY > 0 ? 'down' : 'up';
+      }
+    }
+    return null;
+  }
+
+  // 选择更安全的垂直方向(远离墙壁)
+  saferVerticalDir(me) {
+    const upOk = me.y > CELL * 2 && this.canMove('up');
+    const downOk = me.y < (GRID_H - 2) * CELL && this.canMove('down');
+    if (upOk && downOk) return Math.random() < 0.5 ? 'up' : 'down';
+    if (upOk) return 'up';
+    if (downOk) return 'down';
+    return Math.random() < 0.5 ? 'up' : 'down';
+  }
+
+  saferHorizontalDir(me) {
+    const leftOk = me.x > CELL * 2 && this.canMove('left');
+    const rightOk = me.x < (GRID_W - 2) * CELL && this.canMove('right');
+    if (leftOk && rightOk) return Math.random() < 0.5 ? 'left' : 'right';
+    if (leftOk) return 'left';
+    if (rightOk) return 'right';
+    return Math.random() < 0.5 ? 'left' : 'right';
+  }
+
+  // 撤退方向:远离目标
+  retreatDirection(tgt) {
+    const dx = tgt.x - this.tank.x;
+    const dy = tgt.y - this.tank.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0 ? 'left' : 'right';
+    }
+    return dy > 0 ? 'up' : 'down';
+  }
+
+  // 寻找绕侧方向(高难度,当视线被阻挡时)
+  findFlankDirection(tgt) {
+    const me = this.tank;
+    const dx = tgt.x - me.x;
+    const dy = tgt.y - me.y;
+    // 尝试垂直于目标方向移动
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // 水平距离远,尝试垂直绕侧
+      return Math.random() < 0.5 ? 'up' : 'down';
+    } else {
+      return Math.random() < 0.5 ? 'left' : 'right';
+    }
+  }
+
   findNearestPowerUp() {
     const me = this.tank;
     let best = null;
@@ -199,7 +302,6 @@ class TankAI {
     return dy > 0 ? 'down' : 'up';
   }
 
-  // 判断从 me 是否能直线看到 tgt(无砖墙/钢板阻挡)
   hasLineOfSight(a, b) {
     const x0 = Math.floor(a.x / CELL);
     const y0 = Math.floor(a.y / CELL);
@@ -207,7 +309,7 @@ class TankAI {
     const y1 = Math.floor(b.y / CELL);
     const dx = Math.sign(x1 - x0);
     const dy = Math.sign(y1 - y0);
-    if (dx !== 0 && dy !== 0) return false; // 不在同一直线
+    if (dx !== 0 && dy !== 0) return false;
 
     let cx = x0, cy = y0;
     while (cx !== x1 || cy !== y1) {
@@ -221,12 +323,6 @@ class TankAI {
     return true;
   }
 
-  // 判断坦克是否朝向目标(dirs 为可能的朝向)
-  isAimingAt(me, tgt, ...dirs) {
-    return dirs.includes(me.dir) && this.hasLineOfSight(me, tgt);
-  }
-
-  // 是否能向某方向移动(简单判断:前方一格非阻挡)
   canMove(dirStr) {
     const me = this.tank;
     const v = this.dirStrToVec(dirStr);
@@ -242,62 +338,54 @@ class TankAI {
     return DIR_VEC[DIR.RIGHT];
   }
 
-  dirStrToCode(s) {
-    if (s === 'up') return DIR.UP;
-    if (s === 'down') return DIR.DOWN;
-    if (s === 'left') return DIR.LEFT;
-    return DIR.RIGHT;
-  }
-
-  // 应用移动:设置按键
   applyMovement(dirStr) {
     const k = this.game.keys;
     const c = this.tank.controls;
-    // 先释放所有
     k[c.up] = false; k[c.down] = false; k[c.left] = false; k[c.right] = false;
-
     if (dirStr === null) return;
-
-    // 如果方向变了,重置持续计时
     if (dirStr !== this.currentDir) {
       this.currentDir = dirStr;
       this.dirHoldTime = 0;
     } else {
       this.dirHoldTime++;
     }
-
     if (dirStr === 'up') k[c.up] = true;
     else if (dirStr === 'down') k[c.down] = true;
     else if (dirStr === 'left') k[c.left] = true;
     else if (dirStr === 'right') k[c.right] = true;
   }
 
-  // 射击判断
+  // 射击判断(含预判)
   handleFire() {
     const me = this.tank;
     const tgt = this.target;
     const k = this.game.keys;
     const c = this.tank.controls;
 
-    // 有视线且大致对准
     let shouldFire = false;
 
     if (this.hasLineOfSight(me, tgt)) {
-      const dx = tgt.x - me.x;
-      const dy = tgt.y - me.y;
-      const tol = this.meta.aimTolerance * CELL * 0.3;
+      // 预判目标位置(高难度会提前瞄准)
+      let aimX = tgt.x, aimY = tgt.y;
+      if (this.meta.leadFactor > 0) {
+        // 预测目标在子弹飞行时间后的位置
+        const dist = Math.sqrt((tgt.x - me.x) ** 2 + (tgt.y - me.y) ** 2);
+        const bulletTime = dist / 5.2; // 子弹速度 5.2
+        aimX = tgt.x + this.targetVelX * bulletTime * this.meta.leadFactor;
+        aimY = tgt.y + this.targetVelY * bulletTime * this.meta.leadFactor;
+      }
+      const dx = aimX - me.x;
+      const dy = aimY - me.y;
+      const tol = Math.max(0.5, this.meta.aimTolerance) * CELL * 0.3;
 
-      // 判断朝向是否对准
       if ((me.dir === DIR.LEFT || me.dir === DIR.RIGHT) && Math.abs(dy) < tol) shouldFire = true;
       if ((me.dir === DIR.UP || me.dir === DIR.DOWN) && Math.abs(dx) < tol) shouldFire = true;
 
       // 预判:高难度会转向目标方向再开火
       if (!shouldFire && this.meta.leadFactor > 0) {
         if (Math.abs(dy) < tol) {
-          // 需要转水平
           if (dx > 0) { k[c.right] = true; k[c.left] = false; }
           if (dx < 0) { k[c.left] = true; k[c.right] = false; }
-          // 短暂转向后开火
           shouldFire = Math.random() < this.meta.fireChance;
         } else if (Math.abs(dx) < tol) {
           if (dy > 0) { k[c.down] = true; k[c.up] = false; }
@@ -328,19 +416,17 @@ class TankAI {
     let useSkill = false;
     const hpRatio = me.hp / me.maxHp;
 
-    // 根据皮肤决定技能使用策略
     if (me.skin === 'shield' && hpRatio < 0.5) {
-      // 守卫:血量低时修复
       useSkill = true;
     } else if (me.skin === 'heavy') {
-      // 重型:被射击或近距离时开护盾
       if (this.isUnderFire() || this.targetDist() < CELL * 3) useSkill = true;
     } else if (me.skin === 'scout') {
-      // 突击:近距离或需要逃跑时冲刺
       if (this.targetDist() < CELL * 2.5 || hpRatio < 0.3) useSkill = true;
     } else if (me.skin === 'classic') {
-      // 经典:有视线时三连射击
       if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 10) useSkill = true;
+    } else if (me.skin === 'gunner') {
+      // 机枪:有视线时弹幕扫射
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 8) useSkill = true;
     }
 
     if (useSkill && Math.random() < this.meta.skillChance) {
@@ -351,6 +437,96 @@ class TankAI {
     } else {
       k[c.skill] = false;
       this.skillPressed = false;
+    }
+  }
+
+  // 手榴弹判断
+  handleGrenade() {
+    const me = this.tank;
+    const k = this.game.keys;
+    const c = this.tank.controls;
+
+    if (me.grenades <= 0) {
+      k[c.grenade] = false;
+      this.grenadePressed = false;
+      return;
+    }
+
+    // 冷却避免连续投掷
+    if (this.tick - this.lastGrenadeAttempt < 60) {
+      k[c.grenade] = false;
+      this.grenadePressed = false;
+      return;
+    }
+
+    let throwGrenade = false;
+
+    // 如果目标在同一行/列且距离适中 -> 投掷手榴弹破坏掩体或直接伤害
+    const tgt = this.target;
+    const dx = Math.abs(tgt.x - me.x);
+    const dy = Math.abs(tgt.y - me.y);
+    const dist = this.targetDist();
+
+    // 目标在砖墙后面:投掷手榴弹破坏掩体
+    if (!this.hasLineOfSight(me, tgt) && dist < CELL * 6) {
+      throwGrenade = true;
+    }
+    // 近距离投掷
+    if (dist < CELL * 3 && Math.random() < 0.3) {
+      throwGrenade = true;
+    }
+
+    if (throwGrenade && Math.random() < this.meta.grenadeChance) {
+      this.lastGrenadeAttempt = this.tick;
+      if (!this.grenadePressed) {
+        k[c.grenade] = true;
+        this.grenadePressed = true;
+      }
+    } else {
+      k[c.grenade] = false;
+      this.grenadePressed = false;
+    }
+  }
+
+  // 追踪导弹判断
+  handleMissile() {
+    const me = this.tank;
+    const k = this.game.keys;
+    const c = this.tank.controls;
+
+    if (me.missiles <= 0) {
+      k[c.missile] = false;
+      this.missilePressed = false;
+      return;
+    }
+
+    if (this.tick - this.lastMissileAttempt < 90) {
+      k[c.missile] = false;
+      this.missilePressed = false;
+      return;
+    }
+
+    let launchMissile = false;
+    const dist = this.targetDist();
+
+    // 目标在远处或被掩体遮挡时发射导弹(导弹能追踪)
+    if (dist > CELL * 4 && dist < CELL * 15) {
+      launchMissile = true;
+    }
+    // 视线被挡时用导弹绕过掩体
+    if (!this.hasLineOfSight(me, this.target) && dist < CELL * 12) {
+      launchMissile = true;
+    }
+
+    if (launchMissile && Math.random() < this.meta.missileChance) {
+      this.lastMissileAttempt = this.tick;
+      if (!this.missilePressed) {
+        k[c.missile] = true;
+        this.missilePressed = true;
+      }
+    } else {
+      k[c.missile] = false;
+      this.missilePressed = false;
     }
   }
 
@@ -372,7 +548,6 @@ class TankAI {
     return Math.sqrt((this.target.x - this.tank.x) ** 2 + (this.target.y - this.tank.y) ** 2);
   }
 
-  // 卡住检测:如果位置几乎没变且有移动输入,尝试换方向
   checkStuck() {
     const moved = Math.abs(this.tank.x - this.lastX) + Math.abs(this.tank.y - this.lastY);
     this.lastX = this.tank.x;
@@ -381,7 +556,6 @@ class TankAI {
     if (this.currentDir !== null && moved < 0.5) {
       this.stuckTimer++;
       if (this.stuckTimer > 15) {
-        // 强制换方向
         const dirs = ['up', 'down', 'left', 'right'].filter(d => d !== this.currentDir && this.canMove(d));
         if (dirs.length > 0) {
           this.applyMovement(dirs[Math.floor(Math.random() * dirs.length)]);
@@ -398,5 +572,6 @@ class TankAI {
     const c = this.tank.controls;
     k[c.up] = false; k[c.down] = false; k[c.left] = false; k[c.right] = false;
     k[c.fire] = false; k[c.skill] = false;
+    k[c.grenade] = false; k[c.missile] = false;
   }
 }
