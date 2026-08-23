@@ -22,6 +22,20 @@
   </div>
 
   <div id="app" style="display:none;">
+    <!-- 静音按钮 -->
+    <button id="btn-mute" class="mute-btn" title="静音/取消静音 (M)">
+      <svg id="mute-icon-on" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>
+      <svg id="mute-icon-off" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <line x1="23" y1="9" x2="17" y2="15"/>
+        <line x1="17" y1="9" x2="23" y2="15"/>
+      </svg>
+    </button>
+
     <!-- 主菜单 -->
     <section id="screen-menu" class="screen active">
       <div class="menu-card">
@@ -335,5 +349,68 @@
   <script src="js/ai.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/app.js"></script>
+  <script>
+  (function() {
+    // === 密码锁 ===
+    var PWD_KEY = 'tank_game_pwd_v1';
+    var CORRECT_PWD = 'hkdzbk@2608';
+    var lock = document.getElementById('pwd-lock');
+    var app = document.getElementById('app');
+    var input = document.getElementById('pwd-input');
+    var btn = document.getElementById('pwd-btn');
+    var msg = document.getElementById('pwd-msg');
+
+    function unlock() {
+      lock.style.display = 'none';
+      app.style.display = '';
+      localStorage.setItem(PWD_KEY, '1');
+    }
+
+    function checkPwd() {
+      var val = input.value.trim();
+      if (!val) { msg.textContent = '请输入密码'; return; }
+      if (val === CORRECT_PWD) { msg.textContent = ''; unlock(); }
+      else { msg.textContent = '密码错误，请重试'; input.value = ''; input.focus(); }
+    }
+
+    if (localStorage.getItem(PWD_KEY) === '1') unlock();
+    btn.addEventListener('click', checkPwd);
+    input.addEventListener('keydown', function(e) { if (e.key === 'Enter') checkPwd(); });
+    setTimeout(function() { input.focus(); }, 100);
+
+    // === 静音按钮 ===
+    var MUTE_KEY = 'tank_game_muted';
+    var muteBtn = document.getElementById('btn-mute');
+    var iconOn = document.getElementById('mute-icon-on');
+    var iconOff = document.getElementById('mute-icon-off');
+
+    function applyMute(muted) {
+      if (typeof SFX !== 'undefined') {
+        SFX.enabled = !muted;
+        if (SFX.master) SFX.master.gain.value = muted ? 0 : 0.3;
+      }
+      iconOn.style.display = muted ? 'none' : '';
+      iconOff.style.display = muted ? '' : 'none';
+      muteBtn.classList.toggle('muted', muted);
+    }
+
+    var savedMuted = localStorage.getItem(MUTE_KEY) === '1';
+    applyMute(savedMuted);
+
+    muteBtn.addEventListener('click', function() {
+      var muted = muteBtn.classList.contains('muted');
+      applyMute(!muted);
+      localStorage.setItem(MUTE_KEY, (!muted) ? '1' : '0');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'm' || e.key === 'M') {
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        muteBtn.click();
+      }
+    });
+  })();
+  </script>
 </body>
 </html>

@@ -460,3 +460,32 @@ html, body {
 }
 .player-config.ai-config { border-color: rgba(139,92,246,.4); }
 .player-config.ai-config h3 small { color: var(--accent); font-weight: 600; }
+
+/* 静音按钮 */
+.mute-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9000;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(148,163,184,0.25);
+  background: rgba(30,41,59,0.85);
+  backdrop-filter: blur(8px);
+  color: #e2e8f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.mute-btn:hover {
+  background: rgba(51,65,85,0.95);
+  transform: scale(1.08);
+}
+.mute-btn.muted {
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.4);
+}
