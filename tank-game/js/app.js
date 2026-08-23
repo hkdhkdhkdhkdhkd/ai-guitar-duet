@@ -793,11 +793,95 @@ const App = {
       if (e.key === 'Escape') {
         const cur = document.getElementById('screen-game');
         if (cur && !cur.classList.contains('hidden')) {
-          // 游戏界面按 ESC 切换暂停
           this.togglePause();
         }
       }
     });
+
+    // 画布缩放与拖拽
+    this.canvasZoom = 1;
+    this.canvasPanX = 0;
+    this.canvasPanY = 0;
+    this.isDragging = false;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.panStartX = 0;
+    this.panStartY = 0;
+
+    const canvas = document.getElementById('game-canvas');
+    const viewport = document.getElementById('canvas-viewport');
+    const zoomLabel = document.getElementById('zoom-level');
+
+    this.applyCanvasTransform = function() {
+      canvas.style.transform = `translate(${this.canvasPanX}px, ${this.canvasPanY}px) scale(${this.canvasZoom})`;
+      zoomLabel.textContent = Math.round(this.canvasZoom * 100) + '%';
+    };
+
+    this.setZoom = function(z) {
+      this.canvasZoom = Math.max(0.3, Math.min(3, z));
+      this.applyCanvasTransform();
+    };
+
+    this.fitCanvas = function() {
+      const vp = viewport.getBoundingClientRect();
+      const cw = canvas.width;
+      const ch = canvas.height;
+      if (cw === 0 || ch === 0) return;
+      const scaleX = (vp.width - 20) / cw;
+      const scaleY = (vp.height - 20) / ch;
+      this.canvasZoom = Math.min(scaleX, scaleY, 1);
+      this.canvasPanX = 0;
+      this.canvasPanY = 0;
+      this.applyCanvasTransform();
+    };
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      this.setZoom(this.canvasZoom * 1.2);
+    });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      this.setZoom(this.canvasZoom / 1.2);
+    });
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+      this.canvasZoom = 1;
+      this.canvasPanX = 0;
+      this.canvasPanY = 0;
+      this.applyCanvasTransform();
+    });
+    document.getElementById('btn-zoom-fit').addEventListener('click', () => {
+      this.fitCanvas();
+    });
+
+    // 拖拽平移
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target !== canvas && e.target !== viewport) return;
+      this.isDragging = true;
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
+      this.panStartX = this.canvasPanX;
+      this.panStartY = this.canvasPanY;
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return;
+      this.canvasPanX = this.panStartX + (e.clientX - this.dragStartX);
+      this.canvasPanY = this.panStartY + (e.clientY - this.dragStartY);
+      this.applyCanvasTransform();
+    });
+    window.addEventListener('mouseup', () => { this.isDragging = false; });
+
+    // 滚轮缩放
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      this.setZoom(this.canvasZoom * delta);
+    }, { passive: false });
+
+    // 游戏开始时自动适配
+    this._origStartGame = this.startGame;
+    this.startGame = function() {
+      this._origStartGame();
+      setTimeout(() => this.fitCanvas(), 100);
+    };
   },
 
   // 暂停切换(isPaused 可选:不传=切换)

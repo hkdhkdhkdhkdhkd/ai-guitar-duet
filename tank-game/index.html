@@ -255,12 +255,21 @@
         <div class="hp-block p1" id="hud-side-1"></div>
         <div class="game-info">
           <span id="game-map-name"></span>
+          <div class="canvas-controls">
+            <button class="btn small" id="btn-zoom-out" title="缩小">−</button>
+            <span id="zoom-level">100%</span>
+            <button class="btn small" id="btn-zoom-in" title="放大">+</button>
+            <button class="btn small" id="btn-zoom-fit" title="适配">适</button>
+            <button class="btn small" id="btn-zoom-reset" title="重置">R</button>
+          </div>
           <button class="btn small" id="btn-pause">暂停 (ESC)</button>
           <button class="btn small" id="btn-quit-game">退出</button>
         </div>
         <div class="hp-block p2" id="hud-side-2"></div>
       </div>
-      <canvas id="game-canvas" width="900" height="600"></canvas>
+      <div id="canvas-viewport" class="canvas-viewport">
+        <canvas id="game-canvas" width="900" height="600"></canvas>
+      </div>
       <div id="game-overlay" class="game-overlay hidden">
         <div class="overlay-card">
           <h2 id="overlay-title"></h2>
