@@ -121,7 +121,7 @@ html, body {
 }
 .map-card:hover { border-color: var(--primary); }
 .map-card.selected { border-color: var(--primary); background: #eef2ff; }
-.map-card canvas { display: block; width: 100%; image-rendering: pixelated; background: #1a1d2e; border-radius: 6px; }
+.map-card canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: #1a1d2e; border-radius: 6px; }
 .map-card .map-name { text-align: center; font-size: 13px; margin-top: 6px; color: var(--text); font-weight: 600; }
 .map-card .map-tag { font-size: 10px; color: var(--muted); text-align: center; }
 
@@ -263,6 +263,9 @@ html, body {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,.5);
   display: block;
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
 }
 
 .game-overlay {
@@ -417,6 +420,13 @@ html, body {
   .panel { padding: 18px; }
   .editor-layout { grid-template-columns: 1fr; }
   #editor-canvas, #game-canvas { max-width: 100%; }
+}
+
+#editor-canvas {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 /* 人机对战配置 */
@@ -607,6 +617,8 @@ html, body {
 #deploy-canvas {
   display: block;
   max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
   cursor: crosshair;
   border-radius: 8px;
 }

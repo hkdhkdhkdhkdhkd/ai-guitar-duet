@@ -125,9 +125,12 @@ const App = {
       card.className = 'map-card';
       card.dataset.id = m.id;
       const canvas = document.createElement('canvas');
-      canvas.width = GRID_W;
-      canvas.height = GRID_H;
+      const mw = m.width || GRID_W;
+      const mh = m.height || GRID_H;
+      canvas.width = mw;
+      canvas.height = mh;
       canvas.style.width = '100%';
+      canvas.style.aspectRatio = mw + ' / ' + mh;
       card.appendChild(canvas);
       const name = document.createElement('div');
       name.className = 'map-name';
@@ -172,10 +175,12 @@ const App = {
   renderThumbnail(canvas, mapData) {
     const ctx = canvas.getContext('2d');
     const parsed = parseMap(mapData.rows);
+    const w = parsed.grid[0].length;
+    const h = parsed.grid.length;
     ctx.fillStyle = '#1a1d2e';
-    ctx.fillRect(0, 0, GRID_W, GRID_H);
-    for (let y = 0; y < GRID_H; y++) {
-      for (let x = 0; x < GRID_W; x++) {
+    ctx.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
         const v = parsed.grid[y][x];
         if (v === 1) ctx.fillStyle = '#d97706';
         else if (v === 2) ctx.fillStyle = '#6b7280';
@@ -408,9 +413,12 @@ const App = {
       card.className = 'map-card';
       card.dataset.id = m.id;
       const canvas = document.createElement('canvas');
-      canvas.width = GRID_W;
-      canvas.height = GRID_H;
+      const mw = m.width || GRID_W;
+      const mh = m.height || GRID_H;
+      canvas.width = mw;
+      canvas.height = mh;
       canvas.style.width = '100%';
+      canvas.style.aspectRatio = mw + ' / ' + mh;
       card.appendChild(canvas);
       const name = document.createElement('div');
       name.className = 'map-name';
