@@ -25,27 +25,31 @@ class Bullet {
     this.trail.push({ x: this.x, y: this.y });
     if (this.trail.length > 6) this.trail.shift();
 
+    const cell = game.cell;
+    const cw = game.gridW * cell;
+    const ch = game.gridH * cell;
+
     // 越界
-    if (nx < 0 || ny < 0 || nx > GRID_W * CELL || ny > GRID_H * CELL) {
+    if (nx < 0 || ny < 0 || nx > cw || ny > ch) {
       this.dead = true;
       game.spawnExplosion(this.x, this.y, 'small');
       return;
     }
 
-    const cellX = Math.floor(nx / CELL);
-    const cellY = Math.floor(ny / CELL);
-    if (cellX >= 0 && cellX < GRID_W && cellY >= 0 && cellY < GRID_H) {
+    const cellX = Math.floor(nx / cell);
+    const cellY = Math.floor(ny / cell);
+    if (cellX >= 0 && cellX < game.gridW && cellY >= 0 && cellY < game.gridH) {
       const v2 = game.grid[cellY][cellX];
       if (v2 === 1) {
         // 砖墙:摧毁,炮弹消失(穿甲弹/重炮除外)
         if (this.penetrateAll || this.penetrateBrick) {
           // 穿透:摧毁砖墙但继续前进
           game.grid[cellY][cellX] = 0;
-          game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
+          game.spawnExplosion(cellX * cell + cell / 2, cellY * cell + cell / 2, 'brick');
           SFX.play('brick');
         } else {
           game.grid[cellY][cellX] = 0;
-          game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
+          game.spawnExplosion(cellX * cell + cell / 2, cellY * cell + cell / 2, 'brick');
           SFX.play('brick');
           this.dead = true;
           return;

@@ -4,7 +4,7 @@ const App = {
   editor: null,
   selectedMap: null,
   testFromEditor: false,
-  // 多坦克队伍配置(每方最多 5 辆)
+  // 多坦克队伍配置(每方最多 20 辆)
   // team1: 玩家1方(全红),team2: 玩家2方(全蓝)
   // 每项: { skin, color, talents, isHuman }
   aiMode: false,
@@ -16,6 +16,22 @@ const App = {
   team2: [],
   // 玩家人数: 1 = 只有玩家1;2 = 玩家1+玩家2(双人模式)
   playerCount: 2,
+
+  // ===== 布阵系统 =====
+  deployment: null,          // 布阵数据 null 或 {1:{...}, 2:{...}}
+  deployTeam: 1,             // 当前编辑哪一方 1 或 2
+  selectedDeployUnit: null,  // 当前选中要放置的单位类型: 'tank' 索引或 'mortar'/'italianGun'/'mine'
+  selectedDeployTankIdx: -1, // 选中的坦克索引
+  deployMapData: null,       // 当前布阵使用的地图数据
+  deployGrid: null,          // 解析后的 grid
+  deployGridW: 0,
+  deployGridH: 0,
+  deployCell: 30,
+  deployCtx: null,
+  // 武器最大数量
+  MAX_MORTARS: 5,
+  MAX_ITALIAN_GUNS: 3,
+  MAX_MINES: 15,
 
   // 阵营颜色(同方统一)
   teamColor(player) { return player === 1 ? '#ef4444' : '#3b82f6'; },
@@ -71,6 +87,7 @@ const App = {
     this.initEditor();
     this.initGameLifecycle();
     this.initAIBattle();
+    this.initDeploymentButtons();
     // 音效系统:首次点击任意按钮时初始化
     document.body.addEventListener('click', () => SFX.init(), { once: true });
     document.body.addEventListener('keydown', () => SFX.init(), { once: true });
@@ -494,7 +511,7 @@ const App = {
       });
       incBtn.addEventListener('click', () => {
         const cur = pNum === '1' ? this.teamSize1 : this.teamSize2;
-        if (cur < 5) {
+        if (cur < 20) {
           if (pNum === '1') this.teamSize1 = cur + 1;
           else this.teamSize2 = cur + 1;
           apply();
@@ -789,6 +806,767 @@ const App = {
       this.game.lastTime = performance.now();
       this.game.start();
     }
+  },
+
+  // ===== 排兵布阵系统 =====
+
+  // 初始化布阵界面(从自定义页或人机配置页进入)
+  enterDeployment(fromAI) {
+    const mapData = fromAI ? this.aiSelectedMap : this.selectedMap;
+    if (!mapData) return;
+
+    this.deployMapData = mapData;
+    const parsed = parseMap(mapData);
+    this.deployGrid = parsed.grid;
+    this.deployGridW = parsed.width;
+    this.deployGridH = parsed.height;
+    this.deployCell = parsed.cellSize;
+
+    // 初始化布阵数据(空)
+    this.deployment = {
+      1: { tanks: [], mortars: [], italianGuns: [], mines: [] },
+      2: { tanks: [], mortars: [], italianGuns: [], mines: [] }
+    };
+    this.deployTeam = 1;
+    this.selectedDeployUnit = null;
+    this.selectedDeployTankIdx = -1;
+
+    // 设置画布尺寸
+    const canvas = document.getElementById('deploy-canvas');
+    canvas.width = parsed.width * parsed.cellSize;
+    canvas.height = parsed.height * parsed.cellSize;
+    const mapWrap = canvas.parentElement;
+    mapWrap.classList.toggle('big-map', !!parsed.bigBattlefield);
+
+    this.deployCtx = canvas.getContext('2d');
+
+    // 绑定画布事件(首次进入时绑定)
+    if (!canvas.dataset.bound) {
+      canvas.dataset.bound = '1';
+      canvas.addEventListener('click', (e) => this.onDeployCanvasClick(e));
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.onDeployCanvasRightClick(e);
+      });
+    }
+
+    // AI 模式: 禁用蓝方编辑标签,自动生成敌方布阵
+    const tab2 = document.getElementById('deploy-tab-2');
+    if (fromAI) {
+      tab2.disabled = true;
+      tab2.textContent = '蓝方(AI自动布阵)';
+      this.generateAIDeployment();
+    } else {
+      tab2.disabled = false;
+      tab2.textContent = '蓝方布阵';
+    }
+
+    // 双人模式:若玩家数为1,蓝方也由AI布阵
+    if (!fromAI && this.playerCount === 1) {
+      tab2.disabled = true;
+      tab2.textContent = '蓝方(AI自动布阵)';
+      this.generateAIDeploymentForTeam(2);
+    }
+
+    this.renderDeployUnitPanel();
+    this.renderDeploymentMap();
+    this.updateDeployTabs();
+    this.go('screen-deployment');
+  },
+
+  // 为 AI 方生成随机布阵
+  generateAIDeployment() {
+    this.generateAIDeploymentForTeam(2);
+  },
+
+  generateAIDeploymentForTeam(team) {
+    const dep = this.deployment[team];
+    const gridW = this.deployGridW;
+    const gridH = this.deployGridH;
+    const isLeft = team === 1;
+    const xStart = isLeft ? 1 : Math.floor(gridW / 2);
+    const xEnd = isLeft ? Math.floor(gridW / 2) - 1 : gridW - 2;
+    const dir = isLeft ? DIR.RIGHT : DIR.LEFT;
+
+    // 收集己方区域内的空格子
+    const emptyCells = [];
+    for (let y = 1; y < gridH - 1; y++) {
+      for (let x = xStart; x <= xEnd; x++) {
+        if (this.deployGrid[y][x] === 0) {
+          emptyCells.push({ x, y });
+        }
+      }
+    }
+
+    // 随机打乱
+    for (let i = emptyCells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [emptyCells[i], emptyCells[j]] = [emptyCells[j], emptyCells[i]];
+    }
+
+    // 放置坦克
+    const teamList = team === 1 ? this.team1 : this.team2;
+    const tankCount = teamList.length;
+    dep.tanks = [];
+    for (let i = 0; i < tankCount && emptyCells.length > 0; i++) {
+      const cell = emptyCells.shift();
+      dep.tanks.push({ index: i, gx: cell.x, gy: cell.y });
+    }
+
+    // 随机放置一些迫击炮(2-4门)
+    const mortarCount = Math.min(this.MAX_MORTARS, 2 + Math.floor(Math.random() * 3));
+    dep.mortars = [];
+    for (let i = 0; i < mortarCount && emptyCells.length > 0; i++) {
+      const cell = emptyCells.shift();
+      dep.mortars.push({ gx: cell.x, gy: cell.y, dir: dir });
+    }
+
+    // 随机放置一些意大利炮(1-2门)
+    const gunCount = Math.min(this.MAX_ITALIAN_GUNS, 1 + Math.floor(Math.random() * 2));
+    dep.italianGuns = [];
+    for (let i = 0; i < gunCount && emptyCells.length > 0; i++) {
+      const cell = emptyCells.shift();
+      dep.italianGuns.push({ gx: cell.x, gy: cell.y, dir: dir });
+    }
+
+    // 随机放置一些地雷(5-10颗)
+    const mineCount = Math.min(this.MAX_MINES, 5 + Math.floor(Math.random() * 6));
+    dep.mines = [];
+    for (let i = 0; i < mineCount && emptyCells.length > 0; i++) {
+      const cell = emptyCells.shift();
+      dep.mines.push({ gx: cell.x, gy: cell.y });
+    }
+  },
+
+  // 渲染布阵地图
+  renderDeploymentMap() {
+    const ctx = this.deployCtx;
+    if (!ctx) return;
+    const w = this.deployGridW;
+    const h = this.deployGridH;
+    const cell = this.deployCell;
+
+    // 背景
+    drawBackground(ctx, w, h, cell);
+
+    // 方块
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const v = this.deployGrid[y][x];
+        if (v !== 0) drawBlock(ctx, x, y, v, cell);
+      }
+    }
+
+    // 高亮己方部署区域
+    const team = this.deployTeam;
+    const midX = Math.floor(w / 2);
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    if (team === 1) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(0, 0, midX * cell, h * cell);
+    } else {
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(midX * cell, 0, w * cell - midX * cell, h * cell);
+    }
+    ctx.restore();
+
+    // 中线分隔
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(midX * cell, 0);
+    ctx.lineTo(midX * cell, h * cell);
+    ctx.stroke();
+    ctx.restore();
+
+    // 绘制已放置的单位(双方都画,但己方更明显)
+    this.drawDeployedUnits(ctx, 1, team === 1);
+    this.drawDeployedUnits(ctx, 2, team === 2);
+
+    // 绘制选中坦克的悬浮预览(在鼠标位置,暂不实现悬浮,用点击放置)
+  },
+
+  // 绘制某方已部署单位
+  drawDeployedUnits(ctx, team, isActive) {
+    const dep = this.deployment[team];
+    const cell = this.deployCell;
+    const color = team === 1 ? '#ef4444' : '#3b82f6';
+
+    // 地雷(先画,在最底层)
+    if (dep.mines) {
+      for (const m of dep.mines) {
+        const cx = m.gx * cell + cell / 2;
+        const cy = m.gy * cell + cell / 2;
+        ctx.save();
+        ctx.globalAlpha = isActive ? 0.8 : 0.4;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(4, cell * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // 中心高光
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = isActive ? 0.5 : 0.25;
+        ctx.beginPath();
+        ctx.arc(cx - 1, cy - 1, Math.max(2, cell * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // 迫击炮
+    if (dep.mortars) {
+      for (const m of dep.mortars) {
+        const cx = m.gx * cell + cell / 2;
+        const cy = m.gy * cell + cell / 2;
+        const r = Math.max(8, cell * 0.35);
+        ctx.save();
+        ctx.globalAlpha = isActive ? 1 : 0.5;
+        ctx.translate(cx, cy);
+        // 底座
+        const baseColor = team === 1 ? '#991b1b' : '#1e3a8a';
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // 炮管(朝敌方方向)
+        ctx.save();
+        const angle = (m.dir === DIR.RIGHT ? 0 : m.dir === DIR.DOWN ? Math.PI / 2 : m.dir === DIR.LEFT ? Math.PI : -Math.PI / 2);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(0, -Math.max(2, cell * 0.08), Math.max(12, cell * 0.5), Math.max(4, cell * 0.15));
+        ctx.strokeStyle = '#1f2937';
+        ctx.strokeRect(0, -Math.max(2, cell * 0.08), Math.max(12, cell * 0.5), Math.max(4, cell * 0.15));
+        ctx.restore();
+        ctx.restore();
+      }
+    }
+
+    // 意大利炮
+    if (dep.italianGuns) {
+      for (const g of dep.italianGuns) {
+        const cx = g.gx * cell + cell / 2;
+        const cy = g.gy * cell + cell / 2;
+        const r = Math.max(10, cell * 0.42);
+        ctx.save();
+        ctx.globalAlpha = isActive ? 1 : 0.5;
+        ctx.translate(cx, cy);
+        // 底座
+        ctx.fillStyle = '#4b5563';
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1f2937';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // 装甲条纹
+        const ownerColor = team === 1 ? '#991b1b' : '#1e3a8a';
+        ctx.fillStyle = ownerColor;
+        ctx.globalAlpha = isActive ? 0.5 : 0.25;
+        ctx.beginPath();
+        ctx.arc(0, 0, r - 3, -Math.PI * 0.75, -Math.PI * 0.25);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = isActive ? 1 : 0.5;
+        // 炮管
+        ctx.save();
+        ctx.rotate(g.dir * Math.PI / 2);
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(0, -Math.max(3, cell * 0.1), Math.max(18, cell * 0.7), Math.max(6, cell * 0.22));
+        ctx.strokeStyle = '#1f2937';
+        ctx.strokeRect(0, -Math.max(3, cell * 0.1), Math.max(18, cell * 0.7), Math.max(6, cell * 0.22));
+        // 炮口
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(Math.max(16, cell * 0.62), -Math.max(4, cell * 0.13), Math.max(4, cell * 0.15), Math.max(8, cell * 0.3));
+        ctx.restore();
+        ctx.restore();
+      }
+    }
+
+    // 坦克
+    if (dep.tanks) {
+      const teamList = team === 1 ? this.team1 : this.team2;
+      for (const t of dep.tanks) {
+        const cfg = teamList[t.index];
+        if (!cfg) continue;
+        const cx = t.gx * cell + cell / 2;
+        const cy = t.gy * cell + cell / 2;
+        ctx.save();
+        ctx.globalAlpha = isActive ? 1 : 0.5;
+        ctx.translate(cx, cy);
+        const scale = cell / 30 * 0.9;
+        ctx.scale(scale, scale);
+        // 坦克朝向: 红方朝右,蓝方朝左
+        const dir = team === 1 ? DIR.RIGHT : DIR.LEFT;
+        ctx.rotate(dir * Math.PI / 2);
+        drawTankBody(ctx, cfg.skin, cfg.color, team, false, t.index);
+        ctx.restore();
+      }
+    }
+  },
+
+  // 渲染左侧单位面板
+  renderDeployUnitPanel() {
+    const team = this.deployTeam;
+    const dep = this.deployment[team];
+    const teamList = team === 1 ? this.team1 : this.team2;
+    const isEditable = this.isTeamDeployEditable(team);
+
+    // 坦克列表
+    const tankList = document.getElementById('deploy-tank-list');
+    const tankCount = document.getElementById('deploy-tank-count');
+    tankList.innerHTML = '';
+    const placedTankCount = dep.tanks.length;
+    tankCount.textContent = `${placedTankCount}/${teamList.length}`;
+
+    teamList.forEach((cfg, idx) => {
+      const placed = dep.tanks.some(t => t.index === idx);
+      const item = document.createElement('div');
+      item.className = 'unit-tank-item' + (this.selectedDeployUnit === 'tank' && this.selectedDeployTankIdx === idx ? ' selected' : '') + (placed ? ' placed' : '');
+      const skinName = (TANK_SKINS.find(s => s.id === cfg.skin) || {}).name || cfg.skin;
+      const role = cfg.isHuman ? `玩家${team}` : `AI #${idx + 1}`;
+      item.innerHTML = `
+        <div class="tank-icon"><canvas width="32" height="32"></canvas></div>
+        <div class="tank-meta">
+          <div class="tank-name">${skinName}</div>
+          <div class="tank-status">${role}${placed ? ' · 已放置' : ''}</div>
+        </div>
+      `;
+      const canvas = item.querySelector('canvas');
+      const cctx = canvas.getContext('2d');
+      cctx.translate(16, 16);
+      cctx.scale(1.2, 1.2);
+      const dir = team === 1 ? DIR.RIGHT : DIR.LEFT;
+      cctx.rotate(dir * Math.PI / 2);
+      drawTankBody(cctx, cfg.skin, cfg.color, team, false, idx);
+
+      if (isEditable) {
+        item.addEventListener('click', () => {
+          if (placed) {
+            // 已放置:点击则选中并高亮地图上的位置(此处简化为取消选中)
+            // 实际可通过右键在地图上移除
+            return;
+          }
+          this.selectedDeployUnit = 'tank';
+          this.selectedDeployTankIdx = idx;
+          this.renderDeployUnitPanel();
+        });
+      }
+      tankList.appendChild(item);
+    });
+
+    // 武器剩余数量
+    document.getElementById('mortar-remain').textContent = `${this.MAX_MORTARS - dep.mortars.length}/${this.MAX_MORTARS}`;
+    document.getElementById('italianGun-remain').textContent = `${this.MAX_ITALIAN_GUNS - dep.italianGuns.length}/${this.MAX_ITALIAN_GUNS}`;
+    document.getElementById('mine-remain').textContent = `${this.MAX_MINES - dep.mines.length}/${this.MAX_MINES}`;
+
+    // 武器按钮选中状态
+    document.querySelectorAll('.unit-weapon-btn').forEach(btn => {
+      const unit = btn.dataset.unit;
+      btn.classList.toggle('selected', this.selectedDeployUnit === unit);
+      btn.disabled = !isEditable;
+    });
+
+    // 提示文字
+    const warnEl = document.getElementById('deploy-hint-warn');
+    if (!isEditable) {
+      warnEl.textContent = '此阵营由AI布阵,不可编辑';
+    } else if (!this.selectedDeployUnit) {
+      warnEl.textContent = '请先选择要放置的单位';
+    } else {
+      warnEl.textContent = '';
+    }
+  },
+
+  // 判断某方是否可编辑
+  isTeamDeployEditable(team) {
+    // AI模式:只有玩家方(红方1)可编辑
+    if (this.aiMode) return team === 1;
+    // 单人模式:只有玩家1方可编辑
+    if (this.playerCount === 1) return team === 1;
+    // 双人模式:双方都可编辑
+    return true;
+  },
+
+  // 画布点击:放置单位
+  onDeployCanvasClick(e) {
+    if (!this.isTeamDeployEditable(this.deployTeam)) return;
+    if (!this.selectedDeployUnit) return;
+
+    const canvas = document.getElementById('deploy-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    const gx = Math.floor(px / this.deployCell);
+    const gy = Math.floor(py / this.deployCell);
+
+    if (gx < 0 || gx >= this.deployGridW || gy < 0 || gy >= this.deployGridH) return;
+
+    // 检查是否在己方区域
+    if (!this.isInDeployZone(gx, gy, this.deployTeam)) {
+      this.showDeployHint('只能在己方区域放置单位!');
+      return;
+    }
+
+    // 检查是否是空格子(非砖墙钢板)
+    if (this.deployGrid[gy][gx] !== 0) {
+      this.showDeployHint('不能放置在墙壁上!');
+      return;
+    }
+
+    // 检查该格子是否已有单位
+    if (this.isCellOccupied(gx, gy, this.deployTeam)) {
+      // 如果有单位,则移除它(再次点击移除)
+      this.removeUnitAt(gx, gy, this.deployTeam);
+      this.renderDeploymentMap();
+      this.renderDeployUnitPanel();
+      return;
+    }
+
+    this.placeDeployUnit(gx, gy);
+  },
+
+  // 右键点击:移除单位
+  onDeployCanvasRightClick(e) {
+    if (!this.isTeamDeployEditable(this.deployTeam)) return;
+
+    const canvas = document.getElementById('deploy-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    const gx = Math.floor(px / this.deployCell);
+    const gy = Math.floor(py / this.deployCell);
+
+    if (gx < 0 || gx >= this.deployGridW || gy < 0 || gy >= this.deployGridH) return;
+
+    if (this.isCellOccupied(gx, gy, this.deployTeam)) {
+      this.removeUnitAt(gx, gy, this.deployTeam);
+      this.renderDeploymentMap();
+      this.renderDeployUnitPanel();
+    }
+  },
+
+  // 判断格子是否在己方部署区域
+  isInDeployZone(gx, gy, team) {
+    const midX = Math.floor(this.deployGridW / 2);
+    if (team === 1) return gx < midX;
+    return gx >= midX;
+  },
+
+  // 判断格子是否被己方单位占据
+  isCellOccupied(gx, gy, team) {
+    const dep = this.deployment[team];
+    if (dep.tanks.some(t => t.gx === gx && t.gy === gy)) return true;
+    if (dep.mortars.some(m => m.gx === gx && m.gy === gy)) return true;
+    if (dep.italianGuns.some(g => g.gx === gx && g.gy === gy)) return true;
+    if (dep.mines.some(m => m.gx === gx && m.gy === gy)) return true;
+    return false;
+  },
+
+  // 放置单位
+  placeDeployUnit(gx, gy) {
+    const team = this.deployTeam;
+    const dep = this.deployment[team];
+    const dir = team === 1 ? DIR.RIGHT : DIR.LEFT;
+
+    if (this.selectedDeployUnit === 'tank') {
+      const idx = this.selectedDeployTankIdx;
+      if (idx < 0) return;
+      // 检查该坦克是否已放置
+      if (dep.tanks.some(t => t.index === idx)) {
+        this.showDeployHint('该坦克已放置,右键可移除');
+        return;
+      }
+      dep.tanks.push({ index: idx, gx, gy });
+      // 自动选中下一辆未放置的坦克
+      const teamList = team === 1 ? this.team1 : this.team2;
+      let nextIdx = -1;
+      for (let i = 0; i < teamList.length; i++) {
+        if (!dep.tanks.some(t => t.index === i)) { nextIdx = i; break; }
+      }
+      if (nextIdx >= 0) {
+        this.selectedDeployTankIdx = nextIdx;
+      } else {
+        this.selectedDeployUnit = null;
+        this.selectedDeployTankIdx = -1;
+      }
+    } else if (this.selectedDeployUnit === 'mortar') {
+      if (dep.mortars.length >= this.MAX_MORTARS) {
+        this.showDeployHint('迫击炮已达上限!');
+        return;
+      }
+      dep.mortars.push({ gx, gy, dir });
+    } else if (this.selectedDeployUnit === 'italianGun') {
+      if (dep.italianGuns.length >= this.MAX_ITALIAN_GUNS) {
+        this.showDeployHint('意大利炮已达上限!');
+        return;
+      }
+      dep.italianGuns.push({ gx, gy, dir });
+    } else if (this.selectedDeployUnit === 'mine') {
+      if (dep.mines.length >= this.MAX_MINES) {
+        this.showDeployHint('地雷已达上限!');
+        return;
+      }
+      dep.mines.push({ gx, gy });
+    }
+
+    this.renderDeploymentMap();
+    this.renderDeployUnitPanel();
+  },
+
+  // 移除某格的己方单位
+  removeUnitAt(gx, gy, team) {
+    const dep = this.deployment[team];
+    // 先查坦克
+    const tankIdx = dep.tanks.findIndex(t => t.gx === gx && t.gy === gy);
+    if (tankIdx >= 0) {
+      dep.tanks.splice(tankIdx, 1);
+      return;
+    }
+    // 迫击炮
+    const mIdx = dep.mortars.findIndex(m => m.gx === gx && m.gy === gy);
+    if (mIdx >= 0) { dep.mortars.splice(mIdx, 1); return; }
+    // 意大利炮
+    const gIdx = dep.italianGuns.findIndex(g => g.gx === gx && g.gy === gy);
+    if (gIdx >= 0) { dep.italianGuns.splice(gIdx, 1); return; }
+    // 地雷
+    const mineIdx = dep.mines.findIndex(m => m.gx === gx && m.gy === gy);
+    if (mineIdx >= 0) { dep.mines.splice(mineIdx, 1); return; }
+  },
+
+  // 显示提示
+  showDeployHint(msg) {
+    const warnEl = document.getElementById('deploy-hint-warn');
+    if (warnEl) {
+      warnEl.textContent = msg;
+      clearTimeout(this._deployHintTimer);
+      this._deployHintTimer = setTimeout(() => {
+        if (warnEl.textContent === msg) warnEl.textContent = '';
+      }, 2000);
+    }
+  },
+
+  // 切换编辑阵营
+  switchDeployTeam(team) {
+    if (!this.isTeamDeployEditable(team)) return;
+    this.deployTeam = team;
+    this.selectedDeployUnit = null;
+    this.selectedDeployTankIdx = -1;
+    this.updateDeployTabs();
+    this.renderDeployUnitPanel();
+    this.renderDeploymentMap();
+  },
+
+  updateDeployTabs() {
+    document.querySelectorAll('.deploy-tab').forEach(tab => {
+      const team = parseInt(tab.dataset.team);
+      tab.classList.toggle('active', team === this.deployTeam);
+    });
+  },
+
+  // 重置布阵
+  resetDeployment() {
+    if (!confirm('确定要重置所有布阵吗?')) return;
+    this.deployment = {
+      1: { tanks: [], mortars: [], italianGuns: [], mines: [] },
+      2: { tanks: [], mortars: [], italianGuns: [], mines: [] }
+    };
+    // AI模式或单人模式:重新生成敌方布阵
+    if (this.aiMode || this.playerCount === 1) {
+      this.generateAIDeploymentForTeam(2);
+    }
+    this.selectedDeployUnit = null;
+    this.selectedDeployTankIdx = -1;
+    this.renderDeployUnitPanel();
+    this.renderDeploymentMap();
+  },
+
+  // 验证布阵
+  validateDeployment() {
+    // 检查双方坦克是否全部放置
+    const team1Placed = this.deployment[1].tanks.length;
+    const team2Placed = this.deployment[2].tanks.length;
+    const team1Total = this.team1.length;
+    const team2Total = this.team2.length;
+
+    if (team1Placed < team1Total) {
+      alert(`红方还有 ${team1Total - team1Placed} 辆坦克未放置!`);
+      return false;
+    }
+    if (team2Placed < team2Total) {
+      alert(`蓝方还有 ${team2Total - team2Placed} 辆坦克未放置!`);
+      return false;
+    }
+    return true;
+  },
+
+  // 确认开战(使用布阵)
+  confirmDeploymentAndStart() {
+    if (!this.validateDeployment()) return;
+    this.startGameWithDeployment(this.deployment);
+  },
+
+  // 跳过布阵(不使用防御武器,使用默认出生点)
+  skipDeployment() {
+    this.deployment = null;
+    if (this.aiMode) {
+      this.startAIGame();
+    } else {
+      this.startGame();
+    }
+  },
+
+  // 使用布阵数据开始游戏
+  startGameWithDeployment(deployment) {
+    const isAI = this.aiMode;
+    const mapData = isAI ? this.aiSelectedMap : this.selectedMap;
+    if (!mapData) return;
+
+    this.go('screen-game');
+    document.getElementById('game-overlay').classList.add('hidden');
+    document.getElementById('pause-overlay').classList.add('hidden');
+    document.getElementById('game-map-name').textContent = mapData.name;
+
+    // 重建 HUD
+    this.buildGameHud();
+
+    const canvas = document.getElementById('game-canvas');
+    if (!this.game) {
+      this.game = new Game(canvas);
+      this.game.onGameOver = (winner) => this.showGameOver(winner);
+      this.game.onHpChange = (hpList) => this.updateHpHud(hpList);
+      this.game.onState = (stateList) => this.updateStateHud(stateList);
+      this.game.onPlayerDied = (tank) => this.showTakeoverPrompt(tank);
+    } else {
+      this.game.canvas = canvas;
+      this.game.ctx = canvas.getContext('2d');
+    }
+    this.game.loadMap(mapData);
+
+    const bounceId = isAI ? 'ai-opt-bounce' : 'opt-bounce';
+    const powerupsId = isAI ? 'ai-opt-powerups' : 'opt-powerups';
+    const bounce = document.getElementById(bounceId).checked;
+    const powerups = document.getElementById(powerupsId).checked;
+
+    const opts = { bounce, powerups };
+    if (isAI) opts.aiDifficulty = this.aiDifficulty;
+
+    // 设置坦克(带自定义位置)
+    this.game.setupTanks({ 1: this.team1, 2: this.team2 }, opts, deployment);
+
+    // 设置防御武器
+    if (deployment) {
+      const allMortars = [];
+      const allGuns = [];
+      const allMines = [];
+      [1, 2].forEach(team => {
+        const dep = deployment[team];
+        if (dep.mortars) {
+          for (const m of dep.mortars) {
+            allMortars.push({ gx: m.gx, gy: m.gy, dir: m.dir, owner: team });
+          }
+        }
+        if (dep.italianGuns) {
+          for (const g of dep.italianGuns) {
+            allGuns.push({ gx: g.gx, gy: g.gy, dir: g.dir, owner: team });
+          }
+        }
+        if (dep.mines) {
+          for (const m of dep.mines) {
+            allMines.push({ gx: m.gx, gy: m.gy, owner: team });
+          }
+        }
+      });
+      this.game.setupDeployables({
+        mortars: allMortars,
+        italianGuns: allGuns,
+        mines: allMines,
+      });
+    }
+
+    this.game.stop();
+    this.game.start();
+  },
+
+  // 初始化布阵按钮和事件
+  initDeploymentButtons() {
+    // 自定义页"排兵布阵"按钮
+    const btnDeploy = document.getElementById('btn-deploy-game');
+    if (btnDeploy) {
+      btnDeploy.addEventListener('click', () => {
+        this.aiMode = false;
+        this.enterDeployment(false);
+      });
+    }
+
+    // 人机配置页"排兵布阵"按钮
+    const btnAIDeploy = document.getElementById('btn-ai-deploy-game');
+    if (btnAIDeploy) {
+      btnAIDeploy.addEventListener('click', () => {
+        this.aiMode = true;
+        this.enterDeployment(true);
+      });
+    }
+
+    // 阵营切换标签
+    document.querySelectorAll('.deploy-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const team = parseInt(tab.dataset.team);
+        this.switchDeployTeam(team);
+      });
+    });
+
+    // 武器按钮
+    document.querySelectorAll('.unit-weapon-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        const unit = btn.dataset.unit;
+        if (this.selectedDeployUnit === unit) {
+          this.selectedDeployUnit = null;
+        } else {
+          this.selectedDeployUnit = unit;
+          this.selectedDeployTankIdx = -1;
+        }
+        this.renderDeployUnitPanel();
+      });
+    });
+
+    // 返回按钮
+    document.getElementById('btn-deploy-back').addEventListener('click', () => {
+      if (this.aiMode) {
+        this.go('screen-ai-config');
+      } else {
+        this.go('screen-customize');
+      }
+    });
+
+    // 重置按钮
+    document.getElementById('btn-deploy-reset').addEventListener('click', () => {
+      this.resetDeployment();
+    });
+
+    // 跳过布阵按钮
+    document.getElementById('btn-deploy-skip').addEventListener('click', () => {
+      this.skipDeployment();
+    });
+
+    // 确认开战按钮
+    document.getElementById('btn-deploy-confirm').addEventListener('click', () => {
+      this.confirmDeploymentAndStart();
+    });
   },
 
   // 编辑器

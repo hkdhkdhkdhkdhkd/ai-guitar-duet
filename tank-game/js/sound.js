@@ -76,6 +76,15 @@ const SFX = {
       case 'win':      this.tone(523, 0.1, 'sine', 0.2); setTimeout(() => this.tone(659, 0.1, 'sine', 0.2), 100); setTimeout(() => this.tone(784, 0.2, 'sine', 0.2), 200); break;
       case 'lose':     this.tone(400, 0.15, 'sawtooth', 0.2, 200); setTimeout(() => this.tone(200, 0.3, 'sawtooth', 0.2, 80), 150); break;
       case 'select':   this.tone(660, 0.04, 'sine', 0.1, 880); break;
+      // 迫击炮
+      case 'mortar_fire': this.tone(150, 0.15, 'sawtooth', 0.18, 60); this.noise(0.1, 0.1, 800); break;
+      case 'mortar_hit':  this.noise(0.4, 0.35, 500); this.tone(70, 0.35, 'sawtooth', 0.25, 15); break;
+      // 意大利炮
+      case 'cannon_fire': this.noise(0.2, 0.25, 400); this.tone(100, 0.15, 'sawtooth', 0.2, 40); break;
+      case 'cannon_hit':  this.noise(0.25, 0.3, 600); this.tone(90, 0.2, 'sawtooth', 0.2, 30); break;
+      // 地雷
+      case 'mine_trigger': this.tone(800, 0.08, 'square', 0.12, 1200); break;
+      case 'mine_explode': this.noise(0.45, 0.35, 450); this.tone(60, 0.4, 'sawtooth', 0.28, 12); break;
     }
   },
 };

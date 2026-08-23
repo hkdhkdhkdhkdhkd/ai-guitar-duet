@@ -41,6 +41,10 @@ function getAllMaps() {
     name: m.name,
     tag: m.tag || '内置',
     rows: m.rows,
+    width: m.width || GRID_W,
+    height: m.height || GRID_H,
+    cellSize: m.cellSize || CELL,
+    bigBattlefield: !!m.bigBattlefield,
     custom: false
   }));
   return builtins.concat(loadCustomMaps());

@@ -92,7 +92,7 @@
                 <button class="ts-btn" id="team-dec-1">−</button>
                 <span class="ts-num" id="team-size-1">1</span>
                 <button class="ts-btn" id="team-inc-1">+</button>
-                <span class="ts-hint">每方 1-5 辆,第 1 辆由玩家1控制,其余由 AI 协助</span>
+                <span class="ts-hint">每方 1-20 辆,第 1 辆由玩家1控制,其余由 AI 协助</span>
               </div>
             </div>
             <div class="team-config" id="team-config-1"></div>
@@ -113,7 +113,10 @@
         </div>
         <div class="panel-actions">
           <button class="btn" data-goto="screen-mapselect">返回</button>
-          <button class="btn primary" id="btn-start-game">开战!</button>
+          <div class="action-right">
+            <button class="btn" id="btn-deploy-game">排兵布阵</button>
+            <button class="btn primary" id="btn-start-game">直接开战</button>
+          </div>
         </div>
       </div>
     </section>
@@ -171,7 +174,7 @@
                 <button class="ts-btn" id="ai-team-dec-2">−</button>
                 <span class="ts-num" id="ai-team-size-2">1</span>
                 <button class="ts-btn" id="ai-team-inc-2">+</button>
-                <span class="ts-hint">敌方坦克数 1-5 辆</span>
+                <span class="ts-hint">敌方坦克数 1-20 辆</span>
               </div>
             </div>
             <div class="team-config" id="ai-team-config-2"></div>
@@ -179,7 +182,69 @@
         </div>
         <div class="panel-actions">
           <button class="btn" data-goto="screen-ai-battle">返回</button>
-          <button class="btn primary" id="btn-start-ai-game">开战!</button>
+          <div class="action-right">
+            <button class="btn" id="btn-ai-deploy-game">排兵布阵</button>
+            <button class="btn primary" id="btn-start-ai-game">直接开战</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 排兵布阵 -->
+    <section id="screen-deployment" class="screen">
+      <div class="panel deploy-panel">
+        <div class="deploy-header">
+          <h2>战前排兵布阵</h2>
+          <div class="deploy-tabs">
+            <button class="deploy-tab active" data-team="1" id="deploy-tab-1">红方布阵</button>
+            <button class="deploy-tab" data-team="2" id="deploy-tab-2">蓝方布阵</button>
+          </div>
+        </div>
+        <div class="deploy-body">
+          <!-- 左侧单位面板 -->
+          <div class="deploy-unit-panel">
+            <div class="unit-section">
+              <h4>坦克 <span class="unit-count" id="deploy-tank-count"></span></h4>
+              <div class="unit-tank-list" id="deploy-tank-list"></div>
+            </div>
+            <div class="unit-section">
+              <h4>防御武器</h4>
+              <div class="unit-weapon-list">
+                <button class="unit-weapon-btn" data-unit="mortar">
+                  <span class="unit-icon mortar-icon"></span>
+                  <span class="unit-name">迫击炮</span>
+                  <span class="unit-remain" id="mortar-remain">5/5</span>
+                </button>
+                <button class="unit-weapon-btn" data-unit="italianGun">
+                  <span class="unit-icon italian-gun-icon"></span>
+                  <span class="unit-name">意大利炮</span>
+                  <span class="unit-remain" id="italianGun-remain">3/3</span>
+                </button>
+                <button class="unit-weapon-btn" data-unit="mine">
+                  <span class="unit-icon mine-icon"></span>
+                  <span class="unit-name">地雷</span>
+                  <span class="unit-remain" id="mine-remain">15/15</span>
+                </button>
+              </div>
+            </div>
+            <div class="deploy-hint">
+              <p>左键点击放置</p>
+              <p>右键点击移除</p>
+              <p class="deploy-hint-warn" id="deploy-hint-warn"></p>
+            </div>
+          </div>
+          <!-- 中央地图画布 -->
+          <div class="deploy-map-wrap">
+            <canvas id="deploy-canvas" width="900" height="600"></canvas>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" id="btn-deploy-back">返回</button>
+          <div class="action-right">
+            <button class="btn" id="btn-deploy-reset">重置</button>
+            <button class="btn" id="btn-deploy-skip">跳过布阵</button>
+            <button class="btn primary" id="btn-deploy-confirm">确认开战</button>
+          </div>
         </div>
       </div>
     </section>
@@ -300,7 +365,7 @@
           <h3>规则与系统</h3>
           <ul>
             <li>基础 <b>7 点生命</b>,可被天赋与道具增强,归零即败。</li>
-            <li><b>多坦克队伍</b>:每方最多 5 辆坦克。第 1 辆由玩家控制,其余由 AI 协助。一方所有坦克被消灭即判败。</li>
+            <li><b>多坦克队伍</b>:每方最多 20 辆坦克。第 1 辆由玩家控制,其余由 AI 协助。一方所有坦克被消灭即判败。</li>
             <li><b>参战玩家</b>:可选 1 人(仅玩家1)或 2 人(玩家1+玩家2)。1 人模式下蓝方第 1 辆也由 AI 接管。</li>
             <li><b>阵营颜色</b>:红方统一红色,蓝方统一蓝色,便于辨识敌我。</li>
             <li><b>同方协作</b>:同方坦克可互相穿过(不卡位),且炮弹/火焰/手榴弹/导弹均不会伤害队友。</li>
@@ -329,6 +394,12 @@
             <li><b>地图道具</b>:血+ / 连发 / 2x攻 / 加速 / 护盾,捡到即生效。</li>
             <li><b>钢板反弹</b>(可选):炮弹碰钢板最多反弹 2 次,第 3 次消失。</li>
             <li><b>人机对战</b>:6 档难度(菜鸟/新手/普通/困难/噩梦/地狱),难度越高 AI 攻击越凶猛、预判越精准、会使用手榴弹和导弹。</li>
+            <li><b>大战场模式</b>:10 张 60x40 大型地图(普通地图 30x20),格子更小更精细,适合 20 辆坦克的大规模会战,地图名带【大战场】前缀。</li>
+            <li><b>排兵布阵</b>(可选):开战前可自由布置己方坦克位置,并放置防御武器。点击「排兵布阵」进入布阵界面,选择单位后点击地图放置,右键移除。不布阵则使用默认出生点且无防御武器。</li>
+            <li><b>迫击炮</b>(布阵放置,每方最多 5 门):固定防御武器,自动瞄准射程内的敌方坦克,发射抛物线炮弹从天而降(无视墙壁),爆炸范围伤害 3 点 + 毁砖。5 点 HP,可被敌方炮弹摧毁。</li>
+            <li><b>意大利炮</b>(布阵放置,每方最多 3 门):重型直射火炮,8 点 HP,发射高速穿甲弹(4 点伤害,可穿透砖墙),5 秒冷却,12 格直线射程。</li>
+            <li><b>地雷</b>(布阵放置,每方最多 15 颗):隐蔽爆炸装置,敌方不可见(己方微弱闪烁),敌方坦克接触后触发爆炸,范围伤害 4 点 + 毁砖。埋于地下,炮弹无法击毁。对己方坦克无害。</li>
+            <li><b>静音按钮</b>:右上角喇叭图标按钮,点击或按 <b>M</b> 键切换游戏音效,设置自动保存。</li>
           </ul>
         </div>
         <div class="panel-actions">

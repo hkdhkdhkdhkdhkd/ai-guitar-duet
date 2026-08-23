@@ -93,7 +93,8 @@ const SKILL_DEF = {
 };
 
 class Tank {
-  constructor(player, gridX, gridY, color, skin, controls, talents, isHuman) {
+  constructor(player, gridX, gridY, color, skin, controls, talents, isHuman, cell) {
+    cell = cell || CELL;
     this.player = player;          // 1 = 玩家1方, 2 = 玩家2方
     this.indexInTeam = 0;          // 己方编号(0..N-1),用于 HUD 显示
     this.isHuman = !!isHuman;      // 是否人类控制(true=P1/P2, false=AI)
@@ -103,8 +104,8 @@ class Tank {
     this.controls = controls;      // {up,down,left,right,fire,skill,grenade,missile}
     this.talents = talents || { defense: 0, speed: 0, attack: 0 };
 
-    this.x = gridX * CELL + CELL / 2;
-    this.y = gridY * CELL + CELL / 2;
+    this.x = gridX * cell + cell / 2;
+    this.y = gridY * cell + cell / 2;
     this.dir = player === 1 ? DIR.RIGHT : DIR.LEFT;
     this.moving = false;
 
@@ -205,8 +206,10 @@ class Tank {
       if (this.isAir) {
         // 飞机:自由飞行,不受墙壁阻挡,仅边界限制
         const half = this.half;
-        this.x = Math.max(half, Math.min(GRID_W * CELL - half, this.x + nx * sp));
-        this.y = Math.max(half, Math.min(GRID_H * CELL - half, this.y + ny * sp));
+        const cw = game.gridW * game.cell;
+        const ch = game.gridH * game.cell;
+        this.x = Math.max(half, Math.min(cw - half, this.x + nx * sp));
+        this.y = Math.max(half, Math.min(ch - half, this.y + ny * sp));
       } else {
         // 坦克:吸附轨道 + 碰撞检测
         this.snapToTrackSafe(nx, ny, game, sp);
@@ -243,14 +246,15 @@ class Tank {
 
   // 吸附到轨道中线,但每步都做碰撞检测,绝不穿墙
   snapToTrackSafe(nx, ny, game, sp) {
+    const cell = game.cell;
     if (nx !== 0) {
-      const target = Math.round((this.y - CELL / 2) / CELL) * CELL + CELL / 2;
+      const target = Math.round((this.y - cell / 2) / cell) * cell + cell / 2;
       if (this.y !== target) {
         const step = Math.sign(target - this.y) * Math.min(sp, Math.abs(target - this.y));
         if (!this.collidesAt(this.x, this.y + step, game)) this.y += step;
       }
     } else if (ny !== 0) {
-      const target = Math.round((this.x - CELL / 2) / CELL) * CELL + CELL / 2;
+      const target = Math.round((this.x - cell / 2) / cell) * cell + cell / 2;
       if (this.x !== target) {
         const step = Math.sign(target - this.x) * Math.min(sp, Math.abs(target - this.x));
         if (!this.collidesAt(this.x + step, this.y, game)) this.x += step;
@@ -260,16 +264,17 @@ class Tank {
 
   tryMove(dx, dy, game) {
     const half = this.half;
+    const cell = game.cell;
     if (dx !== 0) {
       const nx = this.x + dx;
       if (!this.collidesAt(nx, this.y, game)) {
         this.x = nx;
       } else if (dx > 0) {
-        const col = Math.floor((nx + half) / CELL);
-        this.x = col * CELL - half - 0.1;
+        const col = Math.floor((nx + half) / cell);
+        this.x = col * cell - half - 0.1;
       } else {
-        const col = Math.floor((nx - half) / CELL);
-        this.x = (col + 1) * CELL + half + 0.1;
+        const col = Math.floor((nx - half) / cell);
+        this.x = (col + 1) * cell + half + 0.1;
       }
     }
     if (dy !== 0) {
@@ -277,26 +282,29 @@ class Tank {
       if (!this.collidesAt(this.x, ny, game)) {
         this.y = ny;
       } else if (dy > 0) {
-        const row = Math.floor((ny + half) / CELL);
-        this.y = row * CELL - half - 0.1;
+        const row = Math.floor((ny + half) / cell);
+        this.y = row * cell - half - 0.1;
       } else {
-        const row = Math.floor((ny - half) / CELL);
-        this.y = (row + 1) * CELL + half + 0.1;
+        const row = Math.floor((ny - half) / cell);
+        this.y = (row + 1) * cell + half + 0.1;
       }
     }
-    this.x = Math.max(half, Math.min(GRID_W * CELL - half, this.x));
-    this.y = Math.max(half, Math.min(GRID_H * CELL - half, this.y));
+    const cw = game.gridW * cell;
+    const ch = game.gridH * cell;
+    this.x = Math.max(half, Math.min(cw - half, this.x));
+    this.y = Math.max(half, Math.min(ch - half, this.y));
   }
 
   collidesAt(x, y, game) {
     const half = this.half;
+    const cell = game.cell;
     const left = x - half, right = x + half;
     const top = y - half, bottom = y + half;
-    if (left < 0 || top < 0 || right > GRID_W * CELL || bottom > GRID_H * CELL) return true;
+    if (left < 0 || top < 0 || right > game.gridW * cell || bottom > game.gridH * cell) return true;
     // 飞机:飞越所有墙壁,仅检查边界(不与墙/方块碰撞)
     if (!this.isAir) {
-      const x0 = Math.floor(left / CELL), x1 = Math.floor((right - 0.01) / CELL);
-      const y0 = Math.floor(top / CELL), y1 = Math.floor((bottom - 0.01) / CELL);
+      const x0 = Math.floor(left / cell), x1 = Math.floor((right - 0.01) / cell);
+      const y0 = Math.floor(top / cell), y1 = Math.floor((bottom - 0.01) / cell);
       for (let cy = y0; cy <= y1; cy++) {
         for (let cx = x0; cx <= x1; cx++) {
           const v = game.grid[cy][cx];
@@ -323,7 +331,7 @@ class Tank {
     // 喷火坦克:生成火焰流(射程3格,技能期间翻倍)
     if (this.skin === 'flamethrower') {
       const range = this.flameBoostTimer > 0 ? 6 : 3;
-      game.flames.push(new Flame(bx, by, this.dir, this.player, this.color, dmg, range));
+      game.flames.push(new Flame(bx, by, this.dir, this.player, this.color, dmg, range, game.cell));
       SFX.play('flame');
       return;
     }
@@ -422,7 +430,7 @@ class Tank {
       for (const off of [-10, 0, 10]) {
         const bx = this.x + v.x * (this.half + 4) + perp.x * off;
         const by = this.y + v.y * (this.half + 4) + perp.y * off;
-        const m = new Missile(bx, by, this.dir, this.player, this.color);
+        const m = new Missile(bx, by, this.dir, this.player, this.color, game.cell);
         m.speed = 3.5; m.damage = this.attack;
         game.missiles.push(m);
       }
@@ -452,7 +460,7 @@ class Tank {
       for (let i = -1; i <= 1; i++) {
         const gx = this.x + i * 24;
         const gy = this.y + this.half + 6;
-        const g = new Grenade(gx, gy, DIR.DOWN, this.player, this.color);
+        const g = new Grenade(gx, gy, DIR.DOWN, this.player, this.color, game.cell);
         g.damage = this.attack + 1; g.radius = 36;
         game.grenades.push(g);
       }
@@ -462,7 +470,7 @@ class Tank {
       const v = DIR_VEC[this.dir];
       const mx = this.x + v.x * (this.half + 6);
       const my = this.y + v.y * (this.half + 6);
-      const m = new Missile(mx, my, this.dir, this.player, this.color);
+      const m = new Missile(mx, my, this.dir, this.player, this.color, game.cell);
       m.speed = 4; m.damage = this.attack + 1; m.penetrateWall = true;
       game.missiles.push(m);
       game.spawnExplosion(mx, my, 'spark');
@@ -477,7 +485,7 @@ class Tank {
     const v = DIR_VEC[this.dir];
     const gx = this.x + v.x * (this.half + 6);
     const gy = this.y + v.y * (this.half + 6);
-    game.grenades.push(new Grenade(gx, gy, this.dir, this.player, this.color));
+    game.grenades.push(new Grenade(gx, gy, this.dir, this.player, this.color, game.cell));
     SFX.play('grenade');
     if (game.onLog) game.onLog(`玩家${this.player} 投掷手榴弹 (剩余${this.grenades})`);
   }
@@ -488,7 +496,7 @@ class Tank {
     const v = DIR_VEC[this.dir];
     const mx = this.x + v.x * (this.half + 6);
     const my = this.y + v.y * (this.half + 6);
-    game.missiles.push(new Missile(mx, my, this.dir, this.player, this.color));
+    game.missiles.push(new Missile(mx, my, this.dir, this.player, this.color, game.cell));
     SFX.play('missile');
     if (game.onLog) game.onLog(`玩家${this.player} 发射追踪导弹 (剩余${this.missiles})`);
   }

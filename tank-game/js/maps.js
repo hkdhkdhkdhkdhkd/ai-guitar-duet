@@ -2,14 +2,26 @@
 // 图例: '.' 空  'B' 砖墙(可摧毁)  'S' 钢板(不可摧毁)  '1' 玩家1出生  '2' 玩家2出生
 //       'U' 单向方块(允许↑子弹穿过)  'R' 单向方块(允许→子弹穿过)  'D' 单向方块(允许↓子弹穿过)  'L' 单向方块(允许←子弹穿过)
 // grid 值: 0空 1砖 2钢 3单向↑ 4单向→ 5单向↓ 6单向← (单向方块:不可摧毁、坦克不可穿过、仅允许指定方向子弹穿过)
+
+// 默认地图尺寸(普通地图)
 const GRID_W = 30;
 const GRID_H = 20;
 const CELL = 30; // 每格 30px, 画布 900x600
 
+// 大战场地图尺寸
+const BIG_GRID_W = 60;
+const BIG_GRID_H = 40;
+const BIG_CELL = 20; // 每格 20px, 画布 1200x800
+
 const BUILTIN_MAPS = [
+  // ===== 普通地图 (30x20, cell=30) =====
   {
     name: '经典战场',
     tag: '对称',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..............................',
@@ -36,6 +48,10 @@ const BUILTIN_MAPS = [
   {
     name: '钢铁走廊',
     tag: '走廊',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '.S....S....S....S....S....S...',
       '..............................',
@@ -62,6 +78,10 @@ const BUILTIN_MAPS = [
   {
     name: '双子堡垒',
     tag: '堡垒',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..BBBBBB..............BBBBBB..',
@@ -88,6 +108,10 @@ const BUILTIN_MAPS = [
   {
     name: '迷宫',
     tag: '迷宫',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '.BB..BB..BB..BB..BB..BB..BB...',
@@ -114,6 +138,10 @@ const BUILTIN_MAPS = [
   {
     name: '开阔荒原',
     tag: '开阔',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '...B....B....B....B....B.....',
@@ -140,6 +168,10 @@ const BUILTIN_MAPS = [
   {
     name: '十字阵',
     tag: '对称',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..............................',
@@ -166,6 +198,10 @@ const BUILTIN_MAPS = [
   {
     name: '掩体巷战',
     tag: '掩体',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '.BBB........BBB........BBB...',
@@ -192,6 +228,10 @@ const BUILTIN_MAPS = [
   {
     name: '环形阵地',
     tag: '环形',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..............................',
@@ -218,6 +258,10 @@ const BUILTIN_MAPS = [
   {
     name: '资源点争夺',
     tag: '资源',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..S....S....S....S....S....S..',
@@ -244,6 +288,10 @@ const BUILTIN_MAPS = [
   {
     name: '高地攻防',
     tag: '高地',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..SSSSSSSS..........SSSSSSSS..',
@@ -270,6 +318,10 @@ const BUILTIN_MAPS = [
   {
     name: '迷宫2.0',
     tag: '迷宫',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '.S.S.S.S.S.S.S.S.S.S.S.S.S.S..',
@@ -296,6 +348,10 @@ const BUILTIN_MAPS = [
   {
     name: '开阔高地',
     tag: '开阔',
+    width: GRID_W,
+    height: GRID_H,
+    cellSize: CELL,
+    bigBattlefield: false,
     rows: [
       '..............................',
       '..SSSSSS..............SSSSSS..',
@@ -318,29 +374,552 @@ const BUILTIN_MAPS = [
       '..S....S..............S....S..',
       '..SSSSSS..............SSSSSS..',
     ]
-  }
+  },
+
+  // ===== 大战场地图 (60x40, cell=20) =====
+  {
+    name: '【大战场】荒原决战',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '....B......B......B......B......B......B......B......B......',
+      '............................................................',
+      '........BBB............BBB............BBB...........BBB.....',
+      '....B...B.B......B.....B.B.....B......B.B.....B.....B.B.....',
+      '........BBB............BBB............BBB...........BBB.....',
+      '............................................................',
+      '.........SSS..........SSS..........SSS..........SSS.........',
+      '.........S.S..........S.S..........S.S..........S.S.........',
+      '....B....SSS.....B....SSS.....B....SSS.....B....SSS.........',
+      '............................................................',
+      '............................................................',
+      '......BB......BB......BB......BB......BB......BB......BB....',
+      '......BB......BB......BB......BB......BB......BB......BB....',
+      '............................................................',
+      '1..........................................................2',
+      '............................................................',
+      '......BB......BB......BB......BB......BB......BB......BB....',
+      '......BB......BB......BB......BB......BB......BB......BB....',
+      '............................................................',
+      '............................................................',
+      '....B....SSS.....B....SSS.....B....SSS.....B....SSS.........',
+      '.........S.S..........S.S..........S.S..........S.S.........',
+      '.........SSS..........SSS..........SSS..........SSS.........',
+      '............................................................',
+      '........BBB............BBB............BBB...........BBB.....',
+      '....B...B.B......B.....B.B.....B......B.B.....B.....B.B.....',
+      '........BBB............BBB............BBB...........BBB.....',
+      '............................................................',
+      '....B......B......B......B......B......B......B......B......',
+      '............................................................',
+      '.........SSSSSS........SSSSSS........SSSSSS.................',
+      '.........S....S........S....S........S....S.................',
+      '....B....S....S...B....S....S...B....S....S...B.............',
+      '.........S....S........S....S........S....S.................',
+      '.........SSSSSS........SSSSSS........SSSSSS.................',
+      '............................................................',
+      '....B......B......B......B......B......B......B......B......',
+      '............................................................',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】钢铁要塞',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      'SSSSSSSS............................SSSSSSSS................',
+      'S......S............................S......S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.S..S.S....BBBBBBBBBBBBBBBBBB......S.S..S.S................',
+      'S.SSSS.S....B................B......S.SSSS.S................',
+      'S......S....B..SSSSSSSSSSSS..B......S......S................',
+      'SSS..SSS....B..S..........S..B......SSS..SSS................',
+      '............B..S..........S..B..............................',
+      '...BBB......B..S....11....S..B......BBB.....................',
+      '...B.B......B..S..........S..B......B.B.....................',
+      '...BBB......B..SSSSSSSSSSSS..B......BBB.....................',
+      '............B................B..............................',
+      'SSS..SSS....BBBBBBBBBBBBBBBBBB......SSS..SSS................',
+      'S......S............................S......S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S......S............................S......S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S......S............................S......S................',
+      'SSS..SSS....BBBBBBBBBBBBBBBBBB......SSS..SSS................',
+      '............B................B..............................',
+      '...BBB......B..SSSSSSSSSSSS..B......BBB.....................',
+      '...B.B......B..S..........S..B......B.B.....................',
+      '...BBB......B..S....22....S..B......BBB.....................',
+      '............B..S..........S..B..............................',
+      'SSS..SSS....B..SSSSSSSSSSSS..B......SSS..SSS................',
+      'S......S....B................B......S......S................',
+      'S.SSSS.S....BBBBBBBBBBBBBBBBBB......S.SSSS.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.S..S.S............................S.S..S.S................',
+      'S.SSSS.S............................S.SSSS.S................',
+      'S......S............................S......S................',
+      'SSSSSSSS............................SSSSSSSS................',
+    ]
+  },
+  {
+    name: '【大战场】河谷纵横',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S...BBB.S.......S.BBB...S.......S...BBB.S.......S........',
+      '...S...B.B.S.......S.B.B...S.......S...B.B.S.......S........',
+      '...S...BBB.S.......S.BBB...S.......S...BBB.S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '.......BBB.....BBB.....BBB.....BBB.....BBB.....BBB.....BBB..',
+      '.......B.B.....B.B.....B.B.....B.B.....B.B.....B.B.....B.B..',
+      '.......BBB.....BBB.....BBB.....BBB.....BBB.....BBB.....BBB..',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS....',
+      '...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S....',
+      '1..S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS..2.',
+      '...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS...S.SSS....',
+      '...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S...S.S.S....',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '.......BBB.....BBB.....BBB.....BBB.....BBB.....BBB.....BBB..',
+      '.......B.B.....B.B.....B.B.....B.B.....B.B.....B.B.....B.B..',
+      '.......BBB.....BBB.....BBB.....BBB.....BBB.....BBB.....BBB..',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S...BBB.S.......S.BBB...S.......S...BBB.S.......S........',
+      '...S...B.B.S.......S.B.B...S.......S...B.B.S.......S........',
+      '...S...BBB.S.......S.BBB...S.......S...BBB.S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '............................................................',
+      '....SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...',
+      '....S...S...S...S...S...S...S...S...S...S...S...S...S...S...',
+      '....S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...',
+      '....S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...S.B.S...',
+      '....S...S...S...S...S...S...S...S...S...S...S...S...S...S...',
+      '....SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...SSSSS...',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '...S.......S.......S.......S.......S.......S.......S........',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】城市巷战',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '............................................................',
+      '............................................................',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '............................................................',
+      '............................................................',
+      '1BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB...2.',
+      '............................................................',
+      '............................................................',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '............................................................',
+      '............................................................',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '............................................................',
+      '............................................................',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B..B.B.B.....',
+      '.B...B..B...B..B...B..B...B..B...B..B...B..B...B..B...B.....',
+      '.BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB..BBBBB.....',
+      '............................................................',
+      '............................................................',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】山地防线',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..',
+      '..S........................................................S',
+      '..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.',
+      '..S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.',
+      '..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.',
+      '..S........................................................S',
+      '..S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..S',
+      '..S..S....................................................S.',
+      '..S..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S.',
+      '..S..S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B..S.',
+      '..S..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S.',
+      '..S..S....................................................S.',
+      '..S..S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..S',
+      '..S..S..S.................................................S.',
+      '1..S..S..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.2.',
+      '..S..S..S.................................................S.',
+      '..S..S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..S',
+      '..S..S....................................................S.',
+      '..S..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S.',
+      '..S..S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B..S.',
+      '..S..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S.',
+      '..S..S....................................................S.',
+      '..S..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..S',
+      '..S........................................................S',
+      '..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.',
+      '..S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.',
+      '..S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.',
+      '..S........................................................S',
+      '..SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS..',
+      '............................................................',
+      '....SSS......SSS......SSS......SSS......SSS......SSS........',
+      '....S.S......S.S......S.S......S.S......S.S......S.S........',
+      '....S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB....',
+      '....S.S.B.B..S.S.B.B..S.S.B.B..S.S.B.B..S.S.B.B..S.S.B.B....',
+      '....S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB..S.S.BBB....',
+      '....S.S......S.S......S.S......S.S......S.S......S.S........',
+      '....SSS......SSS......SSS......SSS......SSS......SSS........',
+      '............................................................',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】双线战场',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..B.BB.B......B.BB.B......B.BB.B......B.BB.B......B.BB.B....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '............................................................',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '............................................................',
+      '1.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.2.',
+      '............................................................',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '............................................................',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..B.BB.B......B.BB.B......B.BB.B......B.BB.B......B.BB.B....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '............................................................',
+      'BBBBBBBBBBBBBBBBBBBBBB..SSSSSS..BBBBBBBBBBBBBBBBBBBBBB......',
+      '............................................................',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..B.BB.B......B.BB.B......B.BB.B......B.BB.B......B.BB.B....',
+      '..B....B......B....B......B....B......B....B......B....B....',
+      '..BBBBBB......BBBBBB......BBBBBB......BBBBBB......BBBBBB....',
+      '............................................................',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....S.S.........S.S.........S.S.........S.S.........S.S.....',
+      '....SSS.........SSS.........SSS.........SSS.........SSS.....',
+      '............................................................',
+      '1.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.2.',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】环形堡垒',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '......B..............B..............B..............B........',
+      '............................................................',
+      '..........SSS..............SSS..............SSS.............',
+      '..........S.S..............S.S..............S.S.............',
+      '..........SSS..............SSS..............SSS.............',
+      '............................................................',
+      '....BBB.........BBB.........BBB.........BBB.........BBB.....',
+      '....B.B.........B.B.........B.B.........B.B.........B.B.....',
+      '....BBB.........BBB.........BBB.........BBB.........BBB.....',
+      '............................................................',
+      '............................................................',
+      '...............SSSSSSSSSSSSSSSSSSSSSS.......................',
+      '...............S..........................S.................',
+      '...............S..BBBBBBBBBBBBBBBBBBBB..S...................',
+      '1..............S..B..SSSSSSSSSSSSSS..B..S................2..',
+      '...............S..B..S..........S..B..S.....................',
+      '...............S..B..S....BB....S..B..S.....................',
+      '...............S..B..S....BB....S..B..S.....................',
+      '...............S..B..S..........S..B..S.....................',
+      '...............S..B..SSSSSSSSSSSSSS..B..S...................',
+      '...............S..BBBBBBBBBBBBBBBBBBBB..S...................',
+      '...............S..........................S.................',
+      '...............SSSSSSSSSSSSSSSSSSSSSS.......................',
+      '............................................................',
+      '............................................................',
+      '....BBB.........BBB.........BBB.........BBB.........BBB.....',
+      '....B.B.........B.B.........B.B.........B.B.........B.B.....',
+      '....BBB.........BBB.........BBB.........BBB.........BBB.....',
+      '............................................................',
+      '..........SSS..............SSS..............SSS.............',
+      '..........S.S..............S.S..............S.S.............',
+      '..........SSS..............SSS..............SSS.............',
+      '............................................................',
+      '......B..............B..............B..............B........',
+      '............................................................',
+      '...BB.....BB.....BB.....BB.....BB.....BB.....BB.....BB......',
+      '...BB.....BB.....BB.....BB.....BB.....BB.....BB.....BB......',
+      '............................................................',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】迷宫大战',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS',
+      'S....B.....B.....B.....B.....B.....B.....B.....B.....B...S..',
+      'S.BB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BB.S.',
+      'S.B..S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S..B.S.',
+      'S.BB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BB.S.',
+      'S....B.....B.....B.....B.....B.....B.....B.....B.....B...S..',
+      'S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S.S........................................................S',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.S.',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S........................................................S',
+      'S.S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S.S.S......................................................S',
+      'S.S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.S.',
+      '1.S.S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.2.',
+      'S.S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.S.',
+      'S.S.S......................................................S',
+      'S.S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S.S........................................................S',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.S.',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S........................................................S',
+      'S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S....B.....B.....B.....B.....B.....B.....B.....B.....B...S..',
+      'S.BB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BB.S.',
+      'S.B..S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S.B.B.S..B.S.',
+      'S.BB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BBB.S.BB.S.',
+      'S....B.....B.....B.....B.....B.....B.....B.....B.....B...S..',
+      'S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S.S........................................................S',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.B.S.',
+      'S.S.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BBB.BB.S',
+      'S.S........................................................S',
+      'S.SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.S',
+      'S....B.....B.....B.....B.....B.....B.....B.....B.....B...S..',
+      'S.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.S',
+      'SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS',
+    ]
+  },
+  {
+    name: '【大战场】诺曼底登陆',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '...B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B.....',
+      '............................................................',
+      '....B....B....B....B....B....B....B....B....B....B....B.....',
+      '............................................................',
+      '...............SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS...............',
+      '...............S..................................S.........',
+      '...............S..BBBB..BBBB..BBBB..BBBB..BBBB..S...........',
+      '...............S..B..B..B..B..B..B..B..B..B..B..S...........',
+      '......B........S..BBBB..BBBB..BBBB..BBBB..BBBB..S........B..',
+      '...............S..................................S.........',
+      '...............S..SSSS..SSSS..SSSS..SSSS..SSSS..S...........',
+      '...............S..S..S..S..S..S..S..S..S..S..S..S...........',
+      '1..............S..SSSS..SSSS..SSSS..SSSS..SSSS..S.......2...',
+      '...............S..................................S.........',
+      '...............S..BBBB..BBBB..BBBB..BBBB..BBBB..S...........',
+      '...............S..B..B..B..B..B..B..B..B..B..B..S...........',
+      '......B........S..BBBB..BBBB..BBBB..BBBB..BBBB..S........B..',
+      '...............S..................................S.........',
+      '...............S..SSSS..SSSS..SSSS..SSSS..SSSS..S...........',
+      '...............S..S..S..S..S..S..S..S..S..S..S..S...........',
+      '...............S..SSSS..SSSS..SSSS..SSSS..SSSS..S...........',
+      '...............S..................................S.........',
+      '...............SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS...............',
+      '............................................................',
+      '....B....B....B....B....B....B....B....B....B....B....B.....',
+      '............................................................',
+      '...B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B.....',
+      '............................................................',
+      '........B......B......B......B......B......B......B.........',
+      '............................................................',
+      '...BBB....BBB....BBB....BBB....BBB....BBB....BBB....BBB.....',
+      '...B.B....B.B....B.B....B.B....B.B....B.B....B.B....B.B.....',
+      '...BBB....BBB....BBB....BBB....BBB....BBB....BBB....BBB.....',
+      '............................................................',
+      '........B......B......B......B......B......B......B.........',
+      '............................................................',
+      '...B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B..B.....',
+      '............................................................',
+      '............................................................',
+    ]
+  },
+  {
+    name: '【大战场】星际基地',
+    tag: '大战场',
+    width: BIG_GRID_W,
+    height: BIG_GRID_H,
+    cellSize: BIG_CELL,
+    bigBattlefield: true,
+    rows: [
+      '............................................................',
+      '....SSSSSS........SSSSSS........SSSSSS........SSSSSS........',
+      '....S....S........S....S........S....S........S....S........',
+      '....S.SS.S........S.SS.S........S.SS.S........S.SS.S........',
+      '....S.SS.S........S.SS.S........S.SS.S........S.SS.S........',
+      '....S....S........S....S........S....S........S....S........',
+      '....SSSSSS........SSSSSS........SSSSSS........SSSSSS........',
+      '............................................................',
+      '........BBBB............BBBB............BBBB................',
+      '........B..B............B..B............B..B................',
+      '........B..B............B..B............B..B................',
+      '........BBBB............BBBB............BBBB................',
+      '............................................................',
+      '....SSSSSSSSSS....SSSSSSSSSS....SSSSSSSSSS....SSSSSSSSSS....',
+      '....S........S....S........S....S........S....S........S....',
+      '1...S...BB...S....S...BB...S....S...BB...S....S...BB...S...2',
+      '....S...BB...S....S...BB...S....S...BB...S....S...BB...S....',
+      '....S........S....S........S....S........S....S........S....',
+      '....SSSSSSSSSS....SSSSSSSSSS....SSSSSSSSSS....SSSSSSSSSS....',
+      '............................................................',
+      '........BBBB............BBBB............BBBB................',
+      '........B..B............B..B............B..B................',
+      '........B..B............B..B............B..B................',
+      '........BBBB............BBBB............BBBB................',
+      '............................................................',
+      '....SSSSSS........SSSSSS........SSSSSS........SSSSSS........',
+      '....S....S........S....S........S....S........S....S........',
+      '....S.SS.S........S.SS.S........S.SS.S........S.SS.S........',
+      '....S.SS.S........S.SS.S........S.SS.S........S.SS.S........',
+      '....S....S........S....S........S....S........S....S........',
+      '....SSSSSS........SSSSSS........SSSSSS........SSSSSS........',
+      '............................................................',
+      '.........SSS..........SSS..........SSS..........SSS.........',
+      '.........S.S..........S.S..........S.S..........S.S.........',
+      '.....BBB.S.S.BBB..BBB.S.S.BBB..BBB.S.S.BBB..BBB.S.S.BBB.....',
+      '.....B.B.S.S.B.B..B.B.S.S.B.B..B.B.S.S.B.B..B.B.S.S.B.B.....',
+      '.....BBB.S.S.BBB..BBB.S.S.BBB..BBB.S.S.BBB..BBB.S.S.BBB.....',
+      '.........S.S..........S.S..........S.S..........S.S.........',
+      '.........SSS..........SSS..........SSS..........SSS.........',
+      '............................................................',
+    ]
+  },
 ];
 
-// 规范化: 保证每行恰好 GRID_W 字符,不足补 '.',超出截断
-function normalizeMap(rows) {
-  return rows.map(r => {
-    let s = String(r).slice(0, GRID_W);
-    while (s.length < GRID_W) s += '.';
+// 规范化: 保证每行恰好 width 字符,不足补 '.',超出截断
+// 若未传 width/height 则使用默认 GRID_W/GRID_H
+function normalizeMap(rows, width, height) {
+  const w = width || GRID_W;
+  const h = height || GRID_H;
+  const result = rows.map(r => {
+    let s = String(r).slice(0, w);
+    while (s.length < w) s += '.';
     return s;
-  }).slice(0, GRID_H);
+  }).slice(0, h);
+  // 不足行数补空行
+  while (result.length < h) result.push('.'.repeat(w));
+  return result;
 }
 
 // 把字符行解析为格子二维数组与出生点
-// 返回 { grid: number[][], spawn1:{x,y}, spawn2:{x,y} }
+// mapData 可以是 { rows, width, height, cellSize } 或纯 rows 数组
+// 返回 { grid: number[][], spawn1:{x,y}, spawn2:{x,y}, width, height, cellSize }
 // grid 值: 0空 1砖 2钢 3单向↑ 4单向→ 5单向↓ 6单向←
-function parseMap(rows) {
-  const norm = normalizeMap(rows);
+function parseMap(mapData) {
+  let rows, width, height, cellSize, bigBattlefield;
+  if (Array.isArray(mapData)) {
+    rows = mapData;
+    width = GRID_W;
+    height = GRID_H;
+    cellSize = CELL;
+    bigBattlefield = false;
+  } else {
+    rows = mapData.rows;
+    width = mapData.width || GRID_W;
+    height = mapData.height || GRID_H;
+    cellSize = mapData.cellSize || CELL;
+    bigBattlefield = !!mapData.bigBattlefield;
+  }
+  const norm = normalizeMap(rows, width, height);
   const grid = [];
-  let spawn1 = { x: 1, y: 10 };
-  let spawn2 = { x: GRID_W - 2, y: 10 };
-  for (let y = 0; y < GRID_H; y++) {
+  let spawn1 = { x: 1, y: Math.floor(height / 2) };
+  let spawn2 = { x: width - 2, y: Math.floor(height / 2) };
+  for (let y = 0; y < height; y++) {
     const row = [];
-    for (let x = 0; x < GRID_W; x++) {
+    for (let x = 0; x < width; x++) {
       const ch = norm[y][x];
       if (ch === 'B') row.push(1);
       else if (ch === 'S') row.push(2);
@@ -354,18 +933,20 @@ function parseMap(rows) {
     }
     grid.push(row);
   }
-  return { grid, spawn1, spawn2 };
+  return { grid, spawn1, spawn2, width, height, cellSize, bigBattlefield };
 }
 
 // 将 grid+出生点序列化为字符行(用于编辑器保存)
-function serializeMap(grid, spawn1, spawn2) {
+function serializeMap(grid, spawn1, spawn2, width, height) {
+  const w = width || GRID_W;
+  const h = height || GRID_H;
   const rows = [];
-  for (let y = 0; y < GRID_H; y++) {
+  for (let y = 0; y < h; y++) {
     let line = '';
-    for (let x = 0; x < GRID_W; x++) {
+    for (let x = 0; x < w; x++) {
       if (spawn1 && spawn1.x === x && spawn1.y === y) { line += '1'; continue; }
       if (spawn2 && spawn2.x === x && spawn2.y === y) { line += '2'; continue; }
-      const v = grid[y][x];
+      const v = grid[y] && grid[y][x];
       line += v === 1 ? 'B' : v === 2 ? 'S' : v === 3 ? 'U' : v === 4 ? 'R' : v === 5 ? 'D' : v === 6 ? 'L' : '.';
     }
     rows.push(line);
@@ -375,7 +956,10 @@ function serializeMap(grid, spawn1, spawn2) {
 
 // 从主出生点 BFS 搜索附近空格,生成 count 个出生位置(含主出生点本身)
 // 用于每方多坦克模式;avoid 为已被对方占据的位置集合
-function expandSpawns(grid, base, count, avoid) {
+// gridW/gridH 为地图尺寸,不传则使用默认 GRID_W/GRID_H
+function expandSpawns(grid, base, count, avoid, gridW, gridH) {
+  const w = gridW || GRID_W;
+  const h = gridH || GRID_H;
   const avoidSet = new Set((avoid || []).map(p => p.x + ',' + p.y));
   const result = [{ x: base.x, y: base.y }];
   if (count <= 1) return result;
@@ -391,7 +975,7 @@ function expandSpawns(grid, base, count, avoid) {
       { x: cur.x, y: cur.y - 1 },
     ];
     for (const n of nb) {
-      if (n.x < 0 || n.x >= GRID_W || n.y < 0 || n.y >= GRID_H) continue;
+      if (n.x < 0 || n.x >= w || n.y < 0 || n.y >= h) continue;
       const key = n.x + ',' + n.y;
       if (visited.has(key)) continue;
       visited.add(key);

@@ -38,6 +38,11 @@ class TankAI {
     this.targetVelY = 0;
   }
 
+  // 便捷访问器:从 game 实例获取地图尺寸
+  get cell() { return this.game.cell; }
+  get gridW() { return this.game.gridW; }
+  get gridH() { return this.game.gridH; }
+
   // 找最近的存活敌方坦克
   findNearestEnemy() {
     let best = null, bestDist = Infinity;
@@ -122,10 +127,10 @@ class TankAI {
 
     // 如果在同一行/列且视线清晰 -> 停下瞄准射击
     if (this.hasLineOfSight(me, tgt)) {
-      if (adx < CELL * 0.6 && (me.dir === DIR.LEFT || me.dir === DIR.RIGHT)) {
+      if (adx < this.cell * 0.6 && (me.dir === DIR.LEFT || me.dir === DIR.RIGHT)) {
         return null;
       }
-      if (ady < CELL * 0.6 && (me.dir === DIR.UP || me.dir === DIR.DOWN)) {
+      if (ady < this.cell * 0.6 && (me.dir === DIR.UP || me.dir === DIR.DOWN)) {
         return null;
       }
     }
@@ -188,14 +193,15 @@ class TankAI {
   }
 
   idealDistance() {
+    const cell = this.game.cell;
     switch (this.difficulty) {
-      case 'noob': return 10 * CELL;
-      case 'easy': return 8 * CELL;
-      case 'medium': return 6 * CELL;
-      case 'hard': return 5 * CELL;
-      case 'nightmare': return 4 * CELL;
-      case 'hell': return 3.5 * CELL;
-      default: return 6 * CELL;
+      case 'noob': return 10 * cell;
+      case 'easy': return 8 * cell;
+      case 'medium': return 6 * cell;
+      case 'hard': return 5 * cell;
+      case 'nightmare': return 4 * cell;
+      case 'hell': return 3.5 * cell;
+      default: return 6 * cell;
     }
   }
 
@@ -225,7 +231,7 @@ class TankAI {
     const dx = bx - me.x;
     const dy = by - me.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > CELL * 5) return null;
+    if (dist > this.cell * 5) return null;
     // 威胁朝向自己?
     const towardMe = (bv.x * (me.x - bx) + bv.y * (me.y - by)) > 0;
     if (!towardMe) return null;
@@ -252,8 +258,8 @@ class TankAI {
 
   // 选择更安全的垂直方向(远离墙壁)
   saferVerticalDir(me) {
-    const upOk = me.y > CELL * 2 && this.canMove('up');
-    const downOk = me.y < (GRID_H - 2) * CELL && this.canMove('down');
+    const upOk = me.y > this.cell * 2 && this.canMove('up');
+    const downOk = me.y < (this.gridH - 2) * this.cell && this.canMove('down');
     if (upOk && downOk) return Math.random() < 0.5 ? 'up' : 'down';
     if (upOk) return 'up';
     if (downOk) return 'down';
@@ -261,8 +267,8 @@ class TankAI {
   }
 
   saferHorizontalDir(me) {
-    const leftOk = me.x > CELL * 2 && this.canMove('left');
-    const rightOk = me.x < (GRID_W - 2) * CELL && this.canMove('right');
+    const leftOk = me.x > this.cell * 2 && this.canMove('left');
+    const rightOk = me.x < (this.gridW - 2) * this.cell && this.canMove('right');
     if (leftOk && rightOk) return Math.random() < 0.5 ? 'left' : 'right';
     if (leftOk) return 'left';
     if (rightOk) return 'right';
@@ -296,7 +302,7 @@ class TankAI {
   findNearestPowerUp() {
     const me = this.tank;
     let best = null;
-    let bestDist = CELL * 6;
+    let bestDist = this.cell * 6;
     for (const pu of this.game.powerups) {
       if (pu.dead) continue;
       const d = Math.abs(pu.x - me.x) + Math.abs(pu.y - me.y);
@@ -315,10 +321,13 @@ class TankAI {
   }
 
   hasLineOfSight(a, b) {
-    const x0 = Math.floor(a.x / CELL);
-    const y0 = Math.floor(a.y / CELL);
-    const x1 = Math.floor(b.x / CELL);
-    const y1 = Math.floor(b.y / CELL);
+    const cell = this.game.cell;
+    const gridW = this.game.gridW;
+    const gridH = this.game.gridH;
+    const x0 = Math.floor(a.x / cell);
+    const y0 = Math.floor(a.y / cell);
+    const x1 = Math.floor(b.x / cell);
+    const y1 = Math.floor(b.y / cell);
     const dx = Math.sign(x1 - x0);
     const dy = Math.sign(y1 - y0);
     if (dx !== 0 && dy !== 0) return false;
@@ -338,7 +347,7 @@ class TankAI {
       if (dx !== 0) cx += dx;
       if (dy !== 0) cy += dy;
       if (cx === x1 && cy === y1) break;
-      if (cx < 0 || cx >= GRID_W || cy < 0 || cy >= GRID_H) return false;
+      if (cx < 0 || cx >= gridW || cy < 0 || cy >= gridH) return false;
       const v = this.game.grid[cy][cx];
       if (v !== 0) {
         // 单向方块(3-6): 若射击方向匹配方块允许方向(v-3)则可穿过
@@ -402,7 +411,7 @@ class TankAI {
       }
       const dx = aimX - me.x;
       const dy = aimY - me.y;
-      const tol = Math.max(0.5, this.meta.aimTolerance) * CELL * 0.3;
+      const tol = Math.max(0.5, this.meta.aimTolerance) * this.cell * 0.3;
 
       if ((me.dir === DIR.LEFT || me.dir === DIR.RIGHT) && Math.abs(dy) < tol) shouldFire = true;
       if ((me.dir === DIR.UP || me.dir === DIR.DOWN) && Math.abs(dx) < tol) shouldFire = true;
@@ -424,20 +433,20 @@ class TankAI {
     // 喷火坦克:射程短(3格),需要近距离才喷;且只要视线对齐就持续喷射
     if (me.skin === 'flamethrower') {
       const dist = this.targetDist();
-      if (dist < CELL * 3.5 && this.hasLineOfSight(me, tgt)) {
+      if (dist < this.cell * 3.5 && this.hasLineOfSight(me, tgt)) {
         // 视线对齐 + 距离够近 -> 持续喷射
         const dx = tgt.x - me.x, dy = tgt.y - me.y;
-        if ((me.dir === DIR.LEFT || me.dir === DIR.RIGHT) && Math.abs(dy) < CELL * 0.5) {
+        if ((me.dir === DIR.LEFT || me.dir === DIR.RIGHT) && Math.abs(dy) < this.cell * 0.5) {
           shouldFire = true;
-        } else if ((me.dir === DIR.UP || me.dir === DIR.DOWN) && Math.abs(dx) < CELL * 0.5) {
+        } else if ((me.dir === DIR.UP || me.dir === DIR.DOWN) && Math.abs(dx) < this.cell * 0.5) {
           shouldFire = true;
         } else if (this.meta.leadFactor > 0.3) {
           // 高难度: 转向目标再喷
-          if (Math.abs(dy) < CELL * 0.5) {
+          if (Math.abs(dy) < this.cell * 0.5) {
             if (dx > 0) { k[c.right] = true; k[c.left] = false; }
             if (dx < 0) { k[c.left] = true; k[c.right] = false; }
             shouldFire = true;
-          } else if (Math.abs(dx) < CELL * 0.5) {
+          } else if (Math.abs(dx) < this.cell * 0.5) {
             if (dy > 0) { k[c.down] = true; k[c.up] = false; }
             if (dy < 0) { k[c.up] = true; k[c.down] = false; }
             shouldFire = true;
@@ -472,38 +481,38 @@ class TankAI {
     if (me.skin === 'shield' && hpRatio < 0.5) {
       useSkill = true;
     } else if (me.skin === 'heavy') {
-      if (this.isUnderFire() || this.targetDist() < CELL * 3) useSkill = true;
+      if (this.isUnderFire() || this.targetDist() < this.cell * 3) useSkill = true;
     } else if (me.skin === 'scout') {
-      if (this.targetDist() < CELL * 2.5 || hpRatio < 0.3) useSkill = true;
+      if (this.targetDist() < this.cell * 2.5 || hpRatio < 0.3) useSkill = true;
     } else if (me.skin === 'classic') {
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 10) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 10) useSkill = true;
     } else if (me.skin === 'gunner') {
       // 机枪:有视线时弹幕扫射
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 8) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 8) useSkill = true;
     } else if (me.skin === 'flamethrower') {
       // 喷火:近距离对线时开启烈焰风暴(射程翻倍)
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 6) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 6) useSkill = true;
     } else if (me.skin === 'tiger' || me.skin === 'a10') {
       // 虎式/A-10: 有视线且中近距离时释放重炮/扫射
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 9) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 9) useSkill = true;
     } else if (me.skin === 't34' || me.skin === 'su27') {
       // T-34/苏-27: 低血或近距离时冲锋/眼镜蛇机动
-      if (hpRatio < 0.4 || this.targetDist() < CELL * 3) useSkill = true;
+      if (hpRatio < 0.4 || this.targetDist() < this.cell * 3) useSkill = true;
     } else if (me.skin === 'sherman') {
       // 谢尔曼: 有视线时火力压制
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 8) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 8) useSkill = true;
     } else if (me.skin === 'churchill') {
       // 丘吉尔: 低血时开装甲堡垒
       if (hpRatio < 0.5) useSkill = true;
     } else if (me.skin === 'panther') {
       // 豹式: 有视线时穿甲狙击
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 12) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 12) useSkill = true;
     } else if (me.skin === 'f16' || me.skin === 'apache') {
       // F-16/阿帕奇: 有视线时发射追踪弹/导弹
-      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 10) useSkill = true;
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < this.cell * 10) useSkill = true;
     } else if (me.skin === 'b52') {
       // B-52: 近距离时地毯轰炸
-      if (this.targetDist() < CELL * 5) useSkill = true;
+      if (this.targetDist() < this.cell * 5) useSkill = true;
     }
 
     if (useSkill && Math.random() < this.meta.skillChance) {
@@ -545,11 +554,11 @@ class TankAI {
     const dist = this.targetDist();
 
     // 目标在砖墙后面:投掷手榴弹破坏掩体
-    if (!this.hasLineOfSight(me, tgt) && dist < CELL * 6) {
+    if (!this.hasLineOfSight(me, tgt) && dist < this.cell * 6) {
       throwGrenade = true;
     }
     // 近距离投掷
-    if (dist < CELL * 3 && Math.random() < 0.3) {
+    if (dist < this.cell * 3 && Math.random() < 0.3) {
       throwGrenade = true;
     }
 
@@ -587,11 +596,11 @@ class TankAI {
     const dist = this.targetDist();
 
     // 目标在远处或被掩体遮挡时发射导弹(导弹能追踪)
-    if (dist > CELL * 4 && dist < CELL * 15) {
+    if (dist > this.cell * 4 && dist < this.cell * 15) {
       launchMissile = true;
     }
     // 视线被挡时用导弹绕过掩体
-    if (!this.hasLineOfSight(me, this.target) && dist < CELL * 12) {
+    if (!this.hasLineOfSight(me, this.target) && dist < this.cell * 12) {
       launchMissile = true;
     }
 
@@ -612,7 +621,7 @@ class TankAI {
     for (const b of this.game.bullets) {
       if (b.dead || b.owner === me.player) continue;
       const d = Math.sqrt((b.x - me.x) ** 2 + (b.y - me.y) ** 2);
-      if (d < CELL * 4) {
+      if (d < this.cell * 4) {
         const bv = DIR_VEC[b.dir];
         if (bv.x * (me.x - b.x) + bv.y * (me.y - b.y) > 0) return true;
       }
