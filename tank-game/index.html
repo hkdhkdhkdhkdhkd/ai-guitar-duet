@@ -321,9 +321,28 @@
               </label>
             </div>
             <div class="tool-group">
+              <label class="editor-load-label">加载已有地图</label>
+              <select id="editor-map-select"></select>
+              <button class="btn small" id="btn-editor-load">载入</button>
+              <button class="btn small" id="btn-editor-delete" style="display:none;">删除</button>
+            </div>
+            <div class="tool-group">
               <button class="btn small" id="btn-editor-clear">清空</button>
               <button class="btn small primary" id="btn-editor-save">保存</button>
               <button class="btn small" id="btn-editor-test">试玩</button>
+            </div>
+
+            <!-- 保存密码弹窗 -->
+            <div id="save-pwd-modal" class="modal-overlay" style="display:none;">
+              <div class="modal-box">
+                <h3>保存地图</h3>
+                <input type="password" id="save-pwd-input" autocomplete="new-password" />
+                <div id="save-pwd-msg" class="modal-msg"></div>
+                <div class="modal-actions">
+                  <button class="btn small" id="save-pwd-cancel">取消</button>
+                  <button class="btn small primary" id="save-pwd-confirm">确认</button>
+                </div>
+              </div>
             </div>
             <p class="editor-hint">左键绘制 · 右键擦除 · 拖动连续绘制</p>
           </div>

@@ -1573,6 +1573,7 @@ const App = {
   initEditor() {
     const canvas = document.getElementById('editor-canvas');
     this.editor = new MapEditor(canvas);
+    this.editorLoadedMapId = null;
 
     // 工具切换
     document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -1599,22 +1600,114 @@ const App = {
     document.querySelector('.dir-btn[data-dir="1"]').classList.add('active');
 
     document.getElementById('btn-editor-clear').addEventListener('click', () => {
-      if (confirm('清空当前地图?')) this.editor.clearAll();
+      if (confirm('清空当前地图?')) {
+        this.editor.clearAll();
+        this.editorLoadedMapId = null;
+        document.getElementById('editor-name').value = '';
+        this.refreshEditorMapSelect();
+      }
     });
+
+    // 地图加载
+    this.refreshEditorMapSelect();
+    document.getElementById('btn-editor-load').addEventListener('click', () => {
+      const select = document.getElementById('editor-map-select');
+      const mapId = select.value;
+      if (!mapId) return;
+      const allMaps = getAllMaps();
+      const mapData = allMaps.find(m => m.id === mapId);
+      if (!mapData) return;
+      this.editor.loadFromMap(mapData);
+      document.getElementById('editor-name').value = mapData.name;
+      this.editorLoadedMapId = mapData.custom ? mapData.id : null;
+      // 只对自制地图显示删除按钮
+      document.getElementById('btn-editor-delete').style.display = mapData.custom ? '' : 'none';
+    });
+
+    // 删除自制地图
+    document.getElementById('btn-editor-delete').addEventListener('click', () => {
+      if (!this.editorLoadedMapId) return;
+      if (confirm('删除这张自制地图?')) {
+        deleteCustomMap(this.editorLoadedMapId);
+        this.editorLoadedMapId = null;
+        this.editor.clearAll();
+        document.getElementById('editor-name').value = '';
+        document.getElementById('btn-editor-delete').style.display = 'none';
+        this.refreshEditorMapSelect();
+      }
+    });
+
+    // 保存:弹出密码验证
     document.getElementById('btn-editor-save').addEventListener('click', () => {
-      const nameInput = document.getElementById('editor-name');
-      const name = nameInput.value.trim() || '我的地图';
-      const map = this.editor.exportMap(name);
-      addCustomMap(map);
-      nameInput.value = '';
-      alert('地图已保存!可在"开始对战"或"人机对战"中选择。');
+      this.showSaveModal();
     });
+    document.getElementById('save-pwd-cancel').addEventListener('click', () => {
+      this.hideSaveModal();
+    });
+    document.getElementById('save-pwd-confirm').addEventListener('click', () => {
+      this.trySaveMap();
+    });
+    document.getElementById('save-pwd-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.trySaveMap();
+    });
+
     document.getElementById('btn-editor-test').addEventListener('click', () => {
       const map = this.editor.exportMap('编辑器测试');
       this.selectedMap = map;
       this.testFromEditor = true;
       this.startGame();
     });
+  },
+
+  refreshEditorMapSelect() {
+    const select = document.getElementById('editor-map-select');
+    if (!select) return;
+    const maps = getAllMaps();
+    select.innerHTML = '<option value="">-- 选择地图 --</option>' +
+      maps.map(m => `<option value="${m.id}">${m.name}${m.custom ? ' (自制)' : ''}</option>`).join('');
+  },
+
+  showSaveModal() {
+    document.getElementById('save-pwd-modal').style.display = '';
+    document.getElementById('save-pwd-input').value = '';
+    document.getElementById('save-pwd-msg').textContent = '';
+    setTimeout(() => document.getElementById('save-pwd-input').focus(), 50);
+  },
+
+  hideSaveModal() {
+    document.getElementById('save-pwd-modal').style.display = 'none';
+  },
+
+  trySaveMap() {
+    const pwd = document.getElementById('save-pwd-input').value.trim();
+    const msgEl = document.getElementById('save-pwd-msg');
+    if (!pwd) { msgEl.textContent = '请输入'; return; }
+    if (pwd !== '1122') {
+      msgEl.textContent = '验证失败';
+      document.getElementById('save-pwd-input').value = '';
+      return;
+    }
+    const nameInput = document.getElementById('editor-name');
+    const name = nameInput.value.trim() || '我的地图';
+    const map = this.editor.exportMap(name);
+    // 如果是已加载的自制地图,覆盖更新;否则新增
+    if (this.editorLoadedMapId) {
+      const existing = loadCustomMaps().find(m => m.id === this.editorLoadedMapId);
+      if (existing) {
+        Object.assign(existing, { name, rows: map.rows, tag: '自制' });
+        saveCustomMaps(loadCustomMaps());
+      } else {
+        addCustomMap(map);
+      }
+    } else {
+      addCustomMap(map);
+    }
+    this.hideSaveModal();
+    nameInput.value = '';
+    this.editorLoadedMapId = null;
+    document.getElementById('btn-editor-delete').style.display = 'none';
+    this.refreshEditorMapSelect();
+    alert('地图已保存!');
   },
 };
 

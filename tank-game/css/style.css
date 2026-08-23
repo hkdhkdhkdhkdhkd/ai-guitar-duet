@@ -616,3 +616,30 @@ html, body {
   max-width: 100%;
   max-height: 65vh;
 }
+
+/* 地图加载器 */
+.editor-load-label { display:block; margin-bottom:6px; font-size:13px; color:#64748b; }
+#editor-map-select {
+  width: 100%; padding: 8px 10px; border: 2px solid #e2e8f0; border-radius: 8px;
+  font-size: 14px; background: #f8fafc; color: #1e293b; margin-bottom: 8px; box-sizing: border-box;
+}
+#editor-map-select:focus { outline: none; border-color: #6366f1; }
+
+/* 密码弹窗 */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; z-index: 10000;
+}
+.modal-box {
+  background: #fff; border-radius: 16px; padding: 32px 28px; max-width: 340px; width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+}
+.modal-box h3 { margin: 0 0 20px 0; font-size: 18px; color: #1e293b; font-weight: 700; }
+.modal-box input[type="password"] {
+  width: 100%; padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 10px;
+  font-size: 16px; text-align: center; letter-spacing: 2px; box-sizing: border-box; margin-bottom: 8px;
+}
+.modal-box input[type="password"]:focus { outline: none; border-color: #6366f1; }
+.modal-msg { min-height: 18px; font-size: 13px; color: #ef4444; margin: 4px 0 12px; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
+.modal-actions .btn { min-width: 90px; }

@@ -7,22 +7,27 @@ class MapEditor {
     this.oneWayDir = 1; // 单向方块默认方向: DIR.RIGHT(→)
     this.painting = false;
     this.eraseMode = false;
+    this.gridW = GRID_W;
+    this.gridH = GRID_H;
+    this.cell = CELL;
     this.grid = this.emptyGrid();
     this.spawn1 = { x: 1, y: 10 };
-    this.spawn2 = { x: GRID_W - 2, y: 10 };
-    this.nameInput = null;
-    this.onSave = null;
-    this.onTest = null;
+    this.spawn2 = { x: this.gridW - 2, y: 10 };
     this.bindEvents();
     this.render();
   }
 
   emptyGrid() {
     const g = [];
-    for (let y = 0; y < GRID_H; y++) {
-      g.push(new Array(GRID_W).fill(0));
+    for (let y = 0; y < this.gridH; y++) {
+      g.push(new Array(this.gridW).fill(0));
     }
     return g;
+  }
+
+  resizeCanvas() {
+    this.canvas.width = this.gridW * this.cell;
+    this.canvas.height = this.gridH * this.cell;
   }
 
   bindEvents() {
@@ -44,26 +49,23 @@ class MapEditor {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.canvas.width / rect.width;
     const scaleY = this.canvas.height / rect.height;
-    const x = Math.floor(((e.clientX - rect.left) * scaleX) / CELL);
-    const y = Math.floor(((e.clientY - rect.top) * scaleY) / CELL);
-    return { x: Math.max(0, Math.min(GRID_W - 1, x)), y: Math.max(0, Math.min(GRID_H - 1, y)) };
+    const x = Math.floor(((e.clientX - rect.left) * scaleX) / this.cell);
+    const y = Math.floor(((e.clientY - rect.top) * scaleY) / this.cell);
+    return { x: Math.max(0, Math.min(this.gridW - 1, x)), y: Math.max(0, Math.min(this.gridH - 1, y)) };
   }
 
   paintAt(e) {
     const { x, y } = this.cellFromEvent(e);
     const tool = this.eraseMode ? 'empty' : this.tool;
     if (tool === 'spawn1') {
-      // 清掉原来的1位置上若为1标记(它存在grid?不,出生点单独存),把新位置清空
       this.grid[y][x] = 0;
       this.spawn1 = { x, y };
-      // 若与2重叠,2移走
-      if (this.spawn2.x === x && this.spawn2.y === y) this.spawn2 = { x: GRID_W - 2, y: 10 };
+      if (this.spawn2.x === x && this.spawn2.y === y) this.spawn2 = { x: this.gridW - 2, y: 10 };
     } else if (tool === 'spawn2') {
       this.grid[y][x] = 0;
       this.spawn2 = { x, y };
       if (this.spawn1.x === x && this.spawn1.y === y) this.spawn1 = { x: 1, y: 10 };
     } else {
-      // 出生点格子不被覆盖成方块
       const isSpawn = (this.spawn1.x === x && this.spawn1.y === y) || (this.spawn2.x === x && this.spawn2.y === y);
       if (isSpawn && tool !== 'empty') return;
       let val;
@@ -77,9 +79,13 @@ class MapEditor {
   }
 
   clearAll() {
+    this.gridW = GRID_W;
+    this.gridH = GRID_H;
+    this.cell = CELL;
+    this.resizeCanvas();
     this.grid = this.emptyGrid();
     this.spawn1 = { x: 1, y: 10 };
-    this.spawn2 = { x: GRID_W - 2, y: 10 };
+    this.spawn2 = { x: this.gridW - 2, y: 10 };
     this.render();
   }
 
@@ -93,6 +99,13 @@ class MapEditor {
   }
 
   loadFromMap(mapData) {
+    const w = mapData.width || GRID_W;
+    const h = mapData.height || GRID_H;
+    const cs = mapData.cellSize || CELL;
+    this.gridW = w;
+    this.gridH = h;
+    this.cell = cs;
+    this.resizeCanvas();
     const parsed = parseMap(mapData.rows);
     this.grid = parsed.grid.map(r => r.slice());
     this.spawn1 = { ...parsed.spawn1 };
@@ -106,17 +119,35 @@ class MapEditor {
       name: name || '我的地图',
       tag: '自制',
       rows,
+      width: this.gridW,
+      height: this.gridH,
+      cellSize: this.cell,
       custom: true
     };
   }
 
   render() {
     const ctx = this.ctx;
-    drawBackground(ctx);
+    drawBackground(ctx, this.cell);
+    // 网格线
+    ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= this.gridW; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * this.cell, 0);
+      ctx.lineTo(x * this.cell, this.gridH * this.cell);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= this.gridH; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * this.cell);
+      ctx.lineTo(this.gridW * this.cell, y * this.cell);
+      ctx.stroke();
+    }
     // 方块
-    for (let y = 0; y < GRID_H; y++) {
-      for (let x = 0; x < GRID_W; x++) {
-        if (this.grid[y][x] !== 0) drawBlock(ctx, x, y, this.grid[y][x]);
+    for (let y = 0; y < this.gridH; y++) {
+      for (let x = 0; x < this.gridW; x++) {
+        if (this.grid[y][x] !== 0) drawBlock(ctx, x, y, this.grid[y][x], this.cell);
       }
     }
     // 出生点
@@ -125,18 +156,18 @@ class MapEditor {
   }
 
   drawSpawn(ctx, sp, color, label) {
-    const px = sp.x * CELL, py = sp.y * CELL;
+    const px = sp.x * this.cell, py = sp.y * this.cell;
     ctx.fillStyle = color;
     ctx.globalAlpha = 0.35;
-    ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
+    ctx.fillRect(px + 2, py + 2, this.cell - 4, this.cell - 4);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
-    ctx.strokeRect(px + 1.5, py + 1.5, CELL - 3, CELL - 3);
+    ctx.strokeRect(px + 1.5, py + 1.5, this.cell - 3, this.cell - 3);
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold ' + Math.floor(this.cell * 0.5) + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, sp.x * CELL + CELL / 2, sp.y * CELL + CELL / 2);
+    ctx.fillText(label, sp.x * this.cell + this.cell / 2, sp.y * this.cell + this.cell / 2);
   }
 }
