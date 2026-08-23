@@ -360,6 +360,7 @@ const App = {
     this.game.setupTanks({ 1: this.team1, 2: this.team2 }, { bounce, powerups });
     this.game.stop();
     this.game.start();
+    setTimeout(() => this.fitCanvas(), 100);
   },
 
   // ====== 人机对战 ======
@@ -489,6 +490,7 @@ const App = {
     this.game.setupTanks({ 1: this.team1, 2: this.team2 }, { bounce, powerups, aiDifficulty: this.aiDifficulty });
     this.game.stop();
     this.game.start();
+    setTimeout(() => this.fitCanvas(), 100);
   },
 
   // 队伍人数增减按钮绑定
@@ -798,28 +800,31 @@ const App = {
       }
     });
 
-    // 画布缩放与拖拽
+    // ===== 画布缩放与平移 =====
     this.canvasZoom = 1;
-    this.canvasPanX = 0;
-    this.canvasPanY = 0;
     this.isDragging = false;
     this.dragStartX = 0;
     this.dragStartY = 0;
-    this.panStartX = 0;
-    this.panStartY = 0;
+    this.scrollStartX = 0;
+    this.scrollStartY = 0;
 
     const canvas = document.getElementById('game-canvas');
     const viewport = document.getElementById('canvas-viewport');
     const zoomLabel = document.getElementById('zoom-level');
+    const zoomSlider = document.getElementById('zoom-slider');
 
-    this.applyCanvasTransform = function() {
-      canvas.style.transform = `translate(${this.canvasPanX}px, ${this.canvasPanY}px) scale(${this.canvasZoom})`;
+    this.applyZoom = function() {
+      const w = canvas.width * this.canvasZoom;
+      const h = canvas.height * this.canvasZoom;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
       zoomLabel.textContent = Math.round(this.canvasZoom * 100) + '%';
+      if (zoomSlider) zoomSlider.value = Math.round(this.canvasZoom * 100);
     };
 
     this.setZoom = function(z) {
       this.canvasZoom = Math.max(0.3, Math.min(3, z));
-      this.applyCanvasTransform();
+      this.applyZoom();
     };
 
     this.fitCanvas = function() {
@@ -829,12 +834,18 @@ const App = {
       if (cw === 0 || ch === 0) return;
       const scaleX = (vp.width - 20) / cw;
       const scaleY = (vp.height - 20) / ch;
-      this.canvasZoom = Math.min(scaleX, scaleY, 1);
-      this.canvasPanX = 0;
-      this.canvasPanY = 0;
-      this.applyCanvasTransform();
+      this.canvasZoom = Math.min(scaleX, scaleY, 1.5);
+      this.applyZoom();
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
     };
 
+    this.panBy = function(dx, dy) {
+      viewport.scrollLeft += dx;
+      viewport.scrollTop += dy;
+    };
+
+    // 缩放按钮
     document.getElementById('btn-zoom-in').addEventListener('click', () => {
       this.setZoom(this.canvasZoom * 1.2);
     });
@@ -843,45 +854,62 @@ const App = {
     });
     document.getElementById('btn-zoom-reset').addEventListener('click', () => {
       this.canvasZoom = 1;
-      this.canvasPanX = 0;
-      this.canvasPanY = 0;
-      this.applyCanvasTransform();
+      this.applyZoom();
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
     });
     document.getElementById('btn-zoom-fit').addEventListener('click', () => {
       this.fitCanvas();
     });
 
-    // 拖拽平移
+    // 缩放滑块
+    if (zoomSlider) {
+      zoomSlider.addEventListener('input', () => {
+        this.canvasZoom = parseInt(zoomSlider.value) / 100;
+        this.applyZoom();
+      });
+    }
+
+    // 平移按钮
+    const PAN_STEP = 80;
+    document.getElementById('btn-pan-left').addEventListener('click', () => this.panBy(-PAN_STEP, 0));
+    document.getElementById('btn-pan-right').addEventListener('click', () => this.panBy(PAN_STEP, 0));
+    document.getElementById('btn-pan-up').addEventListener('click', () => this.panBy(0, -PAN_STEP));
+    document.getElementById('btn-pan-down').addEventListener('click', () => this.panBy(0, PAN_STEP));
+
+    // 拖拽平移(用原生 scrollLeft/scrollTop)
     viewport.addEventListener('mousedown', (e) => {
       if (e.target !== canvas && e.target !== viewport) return;
       this.isDragging = true;
       this.dragStartX = e.clientX;
       this.dragStartY = e.clientY;
-      this.panStartX = this.canvasPanX;
-      this.panStartY = this.canvasPanY;
+      this.scrollStartX = viewport.scrollLeft;
+      this.scrollStartY = viewport.scrollTop;
       e.preventDefault();
     });
     window.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
-      this.canvasPanX = this.panStartX + (e.clientX - this.dragStartX);
-      this.canvasPanY = this.panStartY + (e.clientY - this.dragStartY);
-      this.applyCanvasTransform();
+      viewport.scrollLeft = this.scrollStartX - (e.clientX - this.dragStartX);
+      viewport.scrollTop = this.scrollStartY - (e.clientY - this.dragStartY);
     });
     window.addEventListener('mouseup', () => { this.isDragging = false; });
 
-    // 滚轮缩放
+    // 滚轮缩放(以鼠标位置为中心)
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      this.setZoom(this.canvasZoom * delta);
+      const oldZoom = this.canvasZoom;
+      const newZoom = Math.max(0.3, Math.min(3, oldZoom * delta));
+      if (newZoom === oldZoom) return;
+      const rect = viewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left + viewport.scrollLeft;
+      const mouseY = e.clientY - rect.top + viewport.scrollTop;
+      const ratio = newZoom / oldZoom;
+      this.canvasZoom = newZoom;
+      this.applyZoom();
+      viewport.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+      viewport.scrollTop = mouseY * ratio - (e.clientY - rect.top);
     }, { passive: false });
-
-    // 游戏开始时自动适配
-    this._origStartGame = this.startGame;
-    this.startGame = function() {
-      this._origStartGame();
-      setTimeout(() => this.fitCanvas(), 100);
-    };
   },
 
   // 暂停切换(isPaused 可选:不传=切换)
@@ -1591,6 +1619,7 @@ const App = {
 
     this.game.stop();
     this.game.start();
+    setTimeout(() => this.fitCanvas(), 100);
   },
 
   // 初始化布阵按钮和事件

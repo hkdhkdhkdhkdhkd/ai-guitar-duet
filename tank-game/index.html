@@ -256,11 +256,17 @@
         <div class="game-info">
           <span id="game-map-name"></span>
           <div class="canvas-controls">
+            <button class="btn small" id="btn-pan-left" title="左移">←</button>
+            <button class="btn small" id="btn-pan-up" title="上移">↑</button>
+            <button class="btn small" id="btn-pan-down" title="下移">↓</button>
+            <button class="btn small" id="btn-pan-right" title="右移">→</button>
+            <span class="ctrl-sep"></span>
             <button class="btn small" id="btn-zoom-out" title="缩小">−</button>
-            <span id="zoom-level">100%</span>
+            <input type="range" id="zoom-slider" min="30" max="300" value="100" step="5" class="zoom-slider" title="缩放" />
             <button class="btn small" id="btn-zoom-in" title="放大">+</button>
-            <button class="btn small" id="btn-zoom-fit" title="适配">适</button>
-            <button class="btn small" id="btn-zoom-reset" title="重置">R</button>
+            <span id="zoom-level">100%</span>
+            <button class="btn small" id="btn-zoom-fit" title="适配窗口">适配</button>
+            <button class="btn small" id="btn-zoom-reset" title="重置">重置</button>
           </div>
           <button class="btn small" id="btn-pause">暂停 (ESC)</button>
           <button class="btn small" id="btn-quit-game">退出</button>

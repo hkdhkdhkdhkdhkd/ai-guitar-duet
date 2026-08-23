@@ -264,7 +264,6 @@ html, body {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,.5);
   display: block;
-  transform-origin: 0 0;
 }
 
 #screen-game {
@@ -282,17 +281,22 @@ html, body {
   position: relative;
   border: 1px solid rgba(148,163,184,0.15);
   cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .canvas-viewport:active { cursor: grabbing; }
-.canvas-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
-.canvas-viewport::-webkit-scrollbar-track { background: transparent; }
-.canvas-viewport::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 4px; }
+.canvas-viewport::-webkit-scrollbar { width: 10px; height: 10px; }
+.canvas-viewport::-webkit-scrollbar-track { background: rgba(15,23,42,0.5); border-radius: 5px; }
+.canvas-viewport::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); border-radius: 5px; }
+.canvas-viewport::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.6); }
 
 .canvas-controls {
   display: flex;
   align-items: center;
   gap: 4px;
   margin: 4px 0;
+  flex-wrap: wrap;
 }
 .canvas-controls .btn.small {
   min-width: 32px;
@@ -305,6 +309,42 @@ html, body {
   color: var(--muted);
   min-width: 42px;
   text-align: center;
+}
+.canvas-controls .ctrl-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+.zoom-slider {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(99,102,241,0.4);
+}
+.zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(99,102,241,0.4);
 }
 
 .game-overlay {
