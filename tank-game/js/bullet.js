@@ -12,6 +12,8 @@ class Bullet {
     this.radius = 3.5;
     this.dead = false;
     this.trail = [];
+    this.penetrateBrick = false; // 虎式重炮:穿透砖墙
+    this.penetrateAll = false;   // 豹式穿甲弹:穿透所有墙
   }
 
   update(game) {
@@ -35,21 +37,41 @@ class Bullet {
     if (cellX >= 0 && cellX < GRID_W && cellY >= 0 && cellY < GRID_H) {
       const v2 = game.grid[cellY][cellX];
       if (v2 === 1) {
-        // 砖墙:摧毁,炮弹消失(不反弹)
-        game.grid[cellY][cellX] = 0;
-        game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
-        SFX.play('brick');
-        this.dead = true;
-        return;
+        // 砖墙:摧毁,炮弹消失(穿甲弹/重炮除外)
+        if (this.penetrateAll || this.penetrateBrick) {
+          // 穿透:摧毁砖墙但继续前进
+          game.grid[cellY][cellX] = 0;
+          game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
+          SFX.play('brick');
+        } else {
+          game.grid[cellY][cellX] = 0;
+          game.spawnExplosion(cellX * CELL + CELL / 2, cellY * CELL + CELL / 2, 'brick');
+          SFX.play('brick');
+          this.dead = true;
+          return;
+        }
       } else if (v2 === 2) {
-        // 钢板:反弹(仅钢板计数)
-        if (this.bounces > 0) {
+        // 钢板:穿甲弹直接穿透,否则反弹
+        if (this.penetrateAll) {
+          // 穿甲弹穿透钢板(不摧毁)
+        } else if (this.bounces > 0) {
           this.bounces--;
           this.dir = (this.dir + 2) % 4;   // 反向
           game.spawnExplosion(this.x, this.y, 'spark');
           SFX.play('bounce');
-          // 不前进,留在外侧,下一帧反向运动
           return;
+        } else {
+          this.dead = true;
+          game.spawnExplosion(nx, ny, 'spark');
+          SFX.play('spark');
+          return;
+        }
+      } else if (v2 >= 3 && v2 <= 6) {
+        // 单向方块:穿甲弹穿透,否则方向匹配才能过
+        if (this.penetrateAll) {
+          // 穿甲弹穿透单向方块
+        } else if (this.dir === v2 - 3) {
+          // 方向匹配,子弹穿过
         } else {
           this.dead = true;
           game.spawnExplosion(nx, ny, 'spark');
@@ -69,6 +91,15 @@ class Bullet {
       const dx = this.x - t.x;
       const dy = this.y - t.y;
       if (Math.abs(dx) < t.half && Math.abs(dy) < t.half) {
+        // 丘吉尔装甲堡垒:反弹炮弹
+        if (t.reflectTimer > 0) {
+          this.dir = (this.dir + 2) % 4; // 反向
+          this.owner = t.player;          // 所属权转交
+          this.color = t.color;
+          game.spawnExplosion(this.x, this.y, 'spark');
+          SFX.play('bounce');
+          return;
+        }
         const before = t.hp;
         if (t.hit(this.damage)) {
           game.spawnExplosion(this.x, this.y, 'hit');

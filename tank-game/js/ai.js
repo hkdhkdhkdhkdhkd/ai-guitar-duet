@@ -12,11 +12,12 @@ const AI_DIFFICULTY = {
 };
 
 class TankAI {
-  constructor(difficulty, game) {
+  constructor(difficulty, game, tank) {
     this.difficulty = difficulty || 'medium';
     this.meta = AI_DIFFICULTY[this.difficulty] || AI_DIFFICULTY.medium;
     this.game = game;
-    this.tank = game.tanks[1];  // 玩家2
+    // tank 由调用方传入,用于多 AI 模式
+    this.tank = tank || game.tanks[1];
     this.target = null;
     this.tick = 0;
     this.lastDecision = -999;
@@ -37,9 +38,20 @@ class TankAI {
     this.targetVelY = 0;
   }
 
+  // 找最近的存活敌方坦克
+  findNearestEnemy() {
+    let best = null, bestDist = Infinity;
+    for (const t of this.game.tanks) {
+      if (t.player === this.tank.player || !t.alive) continue;
+      const d = (t.x - this.tank.x) ** 2 + (t.y - this.tank.y) ** 2;
+      if (d < bestDist) { bestDist = d; best = t; }
+    }
+    return best;
+  }
+
   update() {
     this.tick++;
-    this.target = this.game.tanks.find(t => t.player !== this.tank.player && t.alive);
+    this.target = this.findNearestEnemy();
     if (!this.target || !this.tank.alive) {
       this.releaseAllKeys();
       return;
@@ -311,6 +323,16 @@ class TankAI {
     const dy = Math.sign(y1 - y0);
     if (dx !== 0 && dy !== 0) return false;
 
+    // 射击方向(DIR值): dx>0=右(1) dx<0=左(3) dy>0=下(2) dy<0=上(0)
+    let shotDir;
+    if (dx > 0) shotDir = DIR.RIGHT;
+    else if (dx < 0) shotDir = DIR.LEFT;
+    else if (dy > 0) shotDir = DIR.DOWN;
+    else shotDir = DIR.UP;
+
+    // 飞机:飞越墙壁,视线总是清晰(子弹仍可能被墙挡,但 AI 决策按可见处理)
+    if (this.tank.isAir) return true;
+
     let cx = x0, cy = y0;
     while (cx !== x1 || cy !== y1) {
       if (dx !== 0) cx += dx;
@@ -318,7 +340,11 @@ class TankAI {
       if (cx === x1 && cy === y1) break;
       if (cx < 0 || cx >= GRID_W || cy < 0 || cy >= GRID_H) return false;
       const v = this.game.grid[cy][cx];
-      if (v !== 0) return false;
+      if (v !== 0) {
+        // 单向方块(3-6): 若射击方向匹配方块允许方向(v-3)则可穿过
+        if (v >= 3 && v <= 6 && shotDir === v - 3) continue;
+        return false;
+      }
     }
     return true;
   }
@@ -339,7 +365,7 @@ class TankAI {
   }
 
   applyMovement(dirStr) {
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
     k[c.up] = false; k[c.down] = false; k[c.left] = false; k[c.right] = false;
     if (dirStr === null) return;
@@ -359,7 +385,7 @@ class TankAI {
   handleFire() {
     const me = this.tank;
     const tgt = this.target;
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
 
     let shouldFire = false;
@@ -395,6 +421,33 @@ class TankAI {
       }
     }
 
+    // 喷火坦克:射程短(3格),需要近距离才喷;且只要视线对齐就持续喷射
+    if (me.skin === 'flamethrower') {
+      const dist = this.targetDist();
+      if (dist < CELL * 3.5 && this.hasLineOfSight(me, tgt)) {
+        // 视线对齐 + 距离够近 -> 持续喷射
+        const dx = tgt.x - me.x, dy = tgt.y - me.y;
+        if ((me.dir === DIR.LEFT || me.dir === DIR.RIGHT) && Math.abs(dy) < CELL * 0.5) {
+          shouldFire = true;
+        } else if ((me.dir === DIR.UP || me.dir === DIR.DOWN) && Math.abs(dx) < CELL * 0.5) {
+          shouldFire = true;
+        } else if (this.meta.leadFactor > 0.3) {
+          // 高难度: 转向目标再喷
+          if (Math.abs(dy) < CELL * 0.5) {
+            if (dx > 0) { k[c.right] = true; k[c.left] = false; }
+            if (dx < 0) { k[c.left] = true; k[c.right] = false; }
+            shouldFire = true;
+          } else if (Math.abs(dx) < CELL * 0.5) {
+            if (dy > 0) { k[c.down] = true; k[c.up] = false; }
+            if (dy < 0) { k[c.up] = true; k[c.down] = false; }
+            shouldFire = true;
+          }
+        }
+      }
+      k[c.fire] = shouldFire;
+      return;
+    }
+
     // 概率射击(低难度会失误)
     if (shouldFire && Math.random() > this.meta.fireChance) shouldFire = false;
 
@@ -404,7 +457,7 @@ class TankAI {
   // 技能判断
   handleSkill() {
     const me = this.tank;
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
 
     if (me.skillCd > 0) {
@@ -427,6 +480,30 @@ class TankAI {
     } else if (me.skin === 'gunner') {
       // 机枪:有视线时弹幕扫射
       if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 8) useSkill = true;
+    } else if (me.skin === 'flamethrower') {
+      // 喷火:近距离对线时开启烈焰风暴(射程翻倍)
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 6) useSkill = true;
+    } else if (me.skin === 'tiger' || me.skin === 'a10') {
+      // 虎式/A-10: 有视线且中近距离时释放重炮/扫射
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 9) useSkill = true;
+    } else if (me.skin === 't34' || me.skin === 'su27') {
+      // T-34/苏-27: 低血或近距离时冲锋/眼镜蛇机动
+      if (hpRatio < 0.4 || this.targetDist() < CELL * 3) useSkill = true;
+    } else if (me.skin === 'sherman') {
+      // 谢尔曼: 有视线时火力压制
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 8) useSkill = true;
+    } else if (me.skin === 'churchill') {
+      // 丘吉尔: 低血时开装甲堡垒
+      if (hpRatio < 0.5) useSkill = true;
+    } else if (me.skin === 'panther') {
+      // 豹式: 有视线时穿甲狙击
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 12) useSkill = true;
+    } else if (me.skin === 'f16' || me.skin === 'apache') {
+      // F-16/阿帕奇: 有视线时发射追踪弹/导弹
+      if (this.hasLineOfSight(me, this.target) && this.targetDist() < CELL * 10) useSkill = true;
+    } else if (me.skin === 'b52') {
+      // B-52: 近距离时地毯轰炸
+      if (this.targetDist() < CELL * 5) useSkill = true;
     }
 
     if (useSkill && Math.random() < this.meta.skillChance) {
@@ -443,7 +520,7 @@ class TankAI {
   // 手榴弹判断
   handleGrenade() {
     const me = this.tank;
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
 
     if (me.grenades <= 0) {
@@ -491,7 +568,7 @@ class TankAI {
   // 追踪导弹判断
   handleMissile() {
     const me = this.tank;
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
 
     if (me.missiles <= 0) {
@@ -568,7 +645,7 @@ class TankAI {
   }
 
   releaseAllKeys() {
-    const k = this.game.keys;
+    const k = this.tank.aiInput;
     const c = this.tank.controls;
     k[c.up] = false; k[c.down] = false; k[c.left] = false; k[c.right] = false;
     k[c.fire] = false; k[c.skill] = false;

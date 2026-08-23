@@ -1,5 +1,7 @@
 // 地图配置
 // 图例: '.' 空  'B' 砖墙(可摧毁)  'S' 钢板(不可摧毁)  '1' 玩家1出生  '2' 玩家2出生
+//       'U' 单向方块(允许↑子弹穿过)  'R' 单向方块(允许→子弹穿过)  'D' 单向方块(允许↓子弹穿过)  'L' 单向方块(允许←子弹穿过)
+// grid 值: 0空 1砖 2钢 3单向↑ 4单向→ 5单向↓ 6单向← (单向方块:不可摧毁、坦克不可穿过、仅允许指定方向子弹穿过)
 const GRID_W = 30;
 const GRID_H = 20;
 const CELL = 30; // 每格 30px, 画布 900x600
@@ -330,7 +332,7 @@ function normalizeMap(rows) {
 
 // 把字符行解析为格子二维数组与出生点
 // 返回 { grid: number[][], spawn1:{x,y}, spawn2:{x,y} }
-// grid 值: 0空 1砖 2钢
+// grid 值: 0空 1砖 2钢 3单向↑ 4单向→ 5单向↓ 6单向←
 function parseMap(rows) {
   const norm = normalizeMap(rows);
   const grid = [];
@@ -342,6 +344,10 @@ function parseMap(rows) {
       const ch = norm[y][x];
       if (ch === 'B') row.push(1);
       else if (ch === 'S') row.push(2);
+      else if (ch === 'U') row.push(3);
+      else if (ch === 'R') row.push(4);
+      else if (ch === 'D') row.push(5);
+      else if (ch === 'L') row.push(6);
       else if (ch === '1') { row.push(0); spawn1 = { x, y }; }
       else if (ch === '2') { row.push(0); spawn2 = { x, y }; }
       else row.push(0);
@@ -360,9 +366,42 @@ function serializeMap(grid, spawn1, spawn2) {
       if (spawn1 && spawn1.x === x && spawn1.y === y) { line += '1'; continue; }
       if (spawn2 && spawn2.x === x && spawn2.y === y) { line += '2'; continue; }
       const v = grid[y][x];
-      line += v === 1 ? 'B' : v === 2 ? 'S' : '.';
+      line += v === 1 ? 'B' : v === 2 ? 'S' : v === 3 ? 'U' : v === 4 ? 'R' : v === 5 ? 'D' : v === 6 ? 'L' : '.';
     }
     rows.push(line);
   }
   return rows;
+}
+
+// 从主出生点 BFS 搜索附近空格,生成 count 个出生位置(含主出生点本身)
+// 用于每方多坦克模式;avoid 为已被对方占据的位置集合
+function expandSpawns(grid, base, count, avoid) {
+  const avoidSet = new Set((avoid || []).map(p => p.x + ',' + p.y));
+  const result = [{ x: base.x, y: base.y }];
+  if (count <= 1) return result;
+  const visited = new Set([base.x + ',' + base.y]);
+  const queue = [{ x: base.x, y: base.y }];
+  while (queue.length > 0 && result.length < count) {
+    const cur = queue.shift();
+    // 4 邻居
+    const nb = [
+      { x: cur.x + 1, y: cur.y },
+      { x: cur.x - 1, y: cur.y },
+      { x: cur.x, y: cur.y + 1 },
+      { x: cur.x, y: cur.y - 1 },
+    ];
+    for (const n of nb) {
+      if (n.x < 0 || n.x >= GRID_W || n.y < 0 || n.y >= GRID_H) continue;
+      const key = n.x + ',' + n.y;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      // 必须是空格且非对方出生点
+      if (grid[n.y][n.x] === 0 && !avoidSet.has(key)) {
+        result.push({ x: n.x, y: n.y });
+        if (result.length >= count) break;
+      }
+      queue.push(n);
+    }
+  }
+  return result;
 }

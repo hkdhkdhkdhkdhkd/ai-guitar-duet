@@ -10,6 +10,7 @@ class Game {
     this.powerups = [];
     this.grenades = [];
     this.missiles = [];
+    this.flames = [];
     this.keys = {};
     this.running = false;
     this.lastTime = 0;
@@ -24,8 +25,11 @@ class Game {
     this.powerupsEnabled = true;
     this.frame = 0;
     this.powerupTimer = 60 * 6;   // 首次刷新
-    this.ai = null;              // 人机 AI 实例
-    this.aiEnabled = false;      // 是否人机模式
+    this.ai = null;              // 兼容旧字段
+    this.aiEnabled = false;      // 兼容旧字段
+    this.ais = [];               // 多 AI 实例
+    this.aiDifficulty = 'normal';
+    this.winningTeam = null;
   }
 
   loadMap(mapData) {
@@ -36,37 +40,68 @@ class Game {
     this.mapName = mapData.name || '未命名地图';
   }
 
-  setupTanks(p1Config, p2Config, opts) {
+  // 多坦克配置入口
+  // teamConfigs: { 1: [cfg, cfg, ...], 2: [cfg, cfg, ...] } 每队最多 5 个
+  // cfg: { color, skin, talents, isHuman }
+  // opts: { bounce, powerups, aiDifficulty(用于 AI 坦克的难度) }
+  setupTanks(teamConfigs, opts) {
     opts = opts || {};
     this.bounce = !!opts.bounce;
     this.powerupsEnabled = opts.powerups !== false;
-    this.aiEnabled = !!opts.ai;
-    const t1 = new Tank(1, this.spawn1.x, this.spawn1.y, p1Config.color, p1Config.skin, {
+    this.aiDifficulty = opts.aiDifficulty || 'normal';
+
+    // 生成两方出生点列表(BFS)
+    const n1 = (teamConfigs[1] || []).length || 1;
+    const n2 = (teamConfigs[2] || []).length || 1;
+    const spawns1 = expandSpawns(this.grid, this.spawn1, n1, []);
+    const spawns2 = expandSpawns(this.grid, this.spawn2, n2, spawns1);
+
+    const P1_KEYS = {
       up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', fire: 'Space', skill: 'KeyB',
       grenade: 'KeyG', missile: 'KeyH'
-    }, p1Config.talents);
-    const t2 = new Tank(2, this.spawn2.x, this.spawn2.y, p2Config.color, p2Config.skin, {
+    };
+    const P2_KEYS = {
       up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', fire: 'Enter', skill: 'KeyL',
       grenade: 'Comma', missile: 'Period'
-    }, p2Config.talents);
-    t1.dir = DIR.RIGHT;
-    t2.dir = DIR.LEFT;
-    this.tanks = [t1, t2];
+    };
+
+    this.tanks = [];
+    this.ais = [];
+
+    const build = (player, list, spawns, keys) => {
+      for (let i = 0; i < list.length; i++) {
+        const cfg = list[i];
+        const sp = spawns[i] || spawns[spawns.length - 1];
+        const t = new Tank(player, sp.x, sp.y, cfg.color, cfg.skin,
+          player === 1 ? P1_KEYS : P2_KEYS,
+          cfg.talents, !!cfg.isHuman);
+        t.indexInTeam = i;
+        t.dir = player === 1 ? DIR.RIGHT : DIR.LEFT;
+        this.tanks.push(t);
+        // 非人类坦克 = AI
+        if (!cfg.isHuman) {
+          this.ais.push(new TankAI(this.aiDifficulty, this, t));
+        }
+      }
+    };
+
+    build(1, teamConfigs[1] || [], spawns1, P1_KEYS);
+    build(2, teamConfigs[2] || [], spawns2, P2_KEYS);
+
     this.bullets = [];
     this.particles = [];
     this.powerups = [];
     this.grenades = [];
     this.missiles = [];
+    this.flames = [];
     this.winner = null;
+    this.winningTeam = null;
     this.frame = 0;
     this.powerupTimer = 60 * 6;
 
-    // 初始化 AI
-    if (this.aiEnabled && opts.aiDifficulty) {
-      this.ai = new TankAI(opts.aiDifficulty, this);
-    } else {
-      this.ai = null;
-    }
+    // 兼容旧字段
+    this.ai = null;
+    this.aiEnabled = false;
 
     this.notifyHp();
     this.notifyState();
@@ -92,9 +127,11 @@ class Game {
   };
 
   update() {
+    // 玩家死亡接管期间暂停模拟(等待 UI 选择)
+    if (this.pendingTakeover) return;
     this.frame++;
-    // AI 先于坦克更新(设置按键)
-    if (this.ai) this.ai.update();
+    // 所有 AI 先于坦克更新(设置按键)
+    for (const ai of this.ais) ai.update();
     for (const t of this.tanks) t.update(this.keys, this);
     for (const b of this.bullets) b.update(this);
     this.bullets = this.bullets.filter(b => !b.dead);
@@ -102,6 +139,8 @@ class Game {
     this.grenades = this.grenades.filter(g => !g.dead);
     for (const m of this.missiles) m.update(this);
     this.missiles = this.missiles.filter(m => !m.dead);
+    for (const f of this.flames) f.update(this);
+    this.flames = this.flames.filter(f => !f.dead);
     for (const p of this.particles) p.update();
     this.particles = this.particles.filter(p => !p.dead);
     for (const pu of this.powerups) pu.update(this);
@@ -119,15 +158,18 @@ class Game {
     // 状态回调(每 3 帧)
     if (this.frame % 3 === 0) this.notifyState();
 
-    // 胜负判定
-    if (!this.winner) {
-      const alive = this.tanks.filter(t => t.alive);
-      if (alive.length <= 1) {
-        this.winner = alive.length === 1 ? alive[0] : null;
-        const w = this.winner;
-        if (w) SFX.play(w.player === 1 ? 'win' : 'lose');
+    // 胜负判定:按队伍判定(一方全灭则另一方胜)
+    if (!this.winningTeam) {
+      const t1Alive = this.tanks.some(t => t.player === 1 && t.alive);
+      const t2Alive = this.tanks.some(t => t.player === 2 && t.alive);
+      if (!t1Alive || !t2Alive) {
+        this.winningTeam = !t1Alive && !t2Alive ? 0 : (!t1Alive ? 2 : 1);
+        const win = this.winningTeam;
+        const w = win === 0 ? null : this.tanks.find(t => t.player === win && t.alive);
+        this.winner = w;
+        if (win !== 0) SFX.play(win === 1 ? 'win' : 'lose');
         setTimeout(() => {
-          if (!this.running || this.winner !== w) return;
+          if (!this.running || this.winningTeam !== win) return;
           this.onGameOver && this.onGameOver(w);
         }, 600);
       }
@@ -171,6 +213,7 @@ class Game {
     for (const b of this.bullets) b.draw(ctx);
     for (const g of this.grenades) g.draw(ctx);
     for (const m of this.missiles) m.draw(ctx);
+    for (const f of this.flames) f.draw(ctx);
     for (const p of this.particles) p.draw(ctx);
   }
 
@@ -185,11 +228,36 @@ class Game {
 
   onTankHit(tank, before, damage) {
     this.notifyHp();
+    // 检测玩家坦克死亡:之前还活着,现在 hp<=0
+    if (tank.isHuman && before > 0 && tank.hp <= 0) {
+      // 等待玩家选择接管,暂停游戏
+      this.pendingTakeover = tank;
+      if (this.onPlayerDied) this.onPlayerDied(tank);
+    }
+  }
+
+  // 玩家接管某辆同方存活坦克
+  takeover(targetTank) {
+    if (!targetTank || !targetTank.alive) return;
+    const oldHuman = this.pendingTakeover;
+    if (oldHuman) oldHuman.isHuman = false;
+    targetTank.isHuman = true;
+    // 清除目标坦克上的 AI 实例,避免重复控制
+    this.ais = this.ais.filter(ai => ai.tank !== targetTank);
+    this.pendingTakeover = null;
+    this.notifyHp();
+    this.notifyState();
   }
 
   notifyHp() {
     if (this.onHpChange) {
-      this.onHpChange(this.tanks.map(t => ({ player: t.player, hp: t.hp, maxHp: t.maxHp, alive: t.alive })));
+      this.onHpChange(this.tanks.map(t => ({
+        player: t.player,
+        indexInTeam: t.indexInTeam,
+        isHuman: t.isHuman,
+        hp: t.hp, maxHp: t.maxHp, alive: t.alive,
+        skin: t.skin, color: t.color
+      })));
     }
   }
 
@@ -197,6 +265,10 @@ class Game {
     if (!this.onState) return;
     this.onState(this.tanks.map(t => ({
       player: t.player,
+      indexInTeam: t.indexInTeam,
+      isHuman: t.isHuman,
+      skin: t.skin,
+      color: t.color,
       hp: Math.max(0, Math.ceil(t.hp)),
       maxHp: t.maxHp,
       alive: t.alive,
@@ -212,6 +284,9 @@ class Game {
         speed: t.speedTimer > 0 ? Math.ceil(t.speedTimer / 60) : 0,
         shield: t.shieldTimer > 0 ? Math.ceil(t.shieldTimer / 60) : 0,
         dash: t.dashTimer > 0 ? Math.ceil(t.dashTimer / 60) : 0,
+        flameBoost: t.flameBoostTimer > 0 ? Math.ceil(t.flameBoostTimer / 60) : 0,
+        damageReduction: t.damageReductionTimer > 0 ? Math.ceil(t.damageReductionTimer / 60) : 0,
+        reflect: t.reflectTimer > 0 ? Math.ceil(t.reflectTimer / 60) : 0,
       },
     })));
   }

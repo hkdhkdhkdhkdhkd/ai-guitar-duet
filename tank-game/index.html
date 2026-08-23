@@ -48,10 +48,18 @@
       </div>
     </section>
 
-    <!-- 坦克自定义 -->
+    <!-- 坦克自定义(多坦克队伍配置) -->
     <section id="screen-customize" class="screen">
       <div class="panel">
         <h2>选择坦克</h2>
+        <div class="player-count-box">
+          <label class="ai-label">参战玩家</label>
+          <div class="player-count-row" id="player-count-row">
+            <button class="pc-btn" data-pc="1">1 人(仅玩家1)</button>
+            <button class="pc-btn selected" data-pc="2">2 人(玩家1 + 玩家2)</button>
+          </div>
+          <span class="ts-hint">1 人模式: 仅玩家1操作,玩家2方第 1 辆由 AI 接管</span>
+        </div>
         <div class="game-options" id="game-options">
           <label class="opt-toggle">
             <input type="checkbox" id="opt-bounce" />
@@ -64,21 +72,29 @@
         </div>
         <div class="customize-area">
           <div class="player-config" data-player="1">
-            <h3>玩家 1 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
-            <canvas class="tank-preview" width="120" height="120"></canvas>
-            <div class="skin-row" id="skin-row-1"></div>
-            <div class="color-row" id="color-row-1"></div>
-            <div class="talent-box" id="talent-box-1"></div>
-            <div class="skill-info" id="skill-info-1"></div>
+            <div class="team-head">
+              <h3>红方 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
+              <div class="team-size-ctrl">
+                <button class="ts-btn" id="team-dec-1">−</button>
+                <span class="ts-num" id="team-size-1">1</span>
+                <button class="ts-btn" id="team-inc-1">+</button>
+                <span class="ts-hint">每方 1-5 辆,第 1 辆由玩家1控制,其余由 AI 协助</span>
+              </div>
+            </div>
+            <div class="team-config" id="team-config-1"></div>
           </div>
           <div class="vs">VS</div>
           <div class="player-config" data-player="2">
-            <h3>玩家 2 <small>方向键 · 回车射击 · <b>L</b>技能 · <b>,</b>手榴弹 · <b>.</b>导弹</small></h3>
-            <canvas class="tank-preview" width="120" height="120"></canvas>
-            <div class="skin-row" id="skin-row-2"></div>
-            <div class="color-row" id="color-row-2"></div>
-            <div class="talent-box" id="talent-box-2"></div>
-            <div class="skill-info" id="skill-info-2"></div>
+            <div class="team-head">
+              <h3>蓝方 <small>方向键 · 回车射击 · <b>L</b>技能 · <b>,</b>手榴弹 · <b>.</b>导弹</small></h3>
+              <div class="team-size-ctrl">
+                <button class="ts-btn" id="team-dec-2">−</button>
+                <span class="ts-num" id="team-size-2">1</span>
+                <button class="ts-btn" id="team-inc-2">+</button>
+                <span class="ts-hint" id="team2-hint">第 1 辆由玩家2控制,其余由 AI 协助</span>
+              </div>
+            </div>
+            <div class="team-config" id="team-config-2"></div>
           </div>
         </div>
         <div class="panel-actions">
@@ -104,6 +120,10 @@
     <section id="screen-ai-config" class="screen">
       <div class="panel">
         <h2>人机对战配置</h2>
+        <div class="ai-difficulty-box">
+          <label class="ai-label">难度(攻击强度)</label>
+          <div class="ai-difficulty-row" id="ai-difficulty-row"></div>
+        </div>
         <div class="game-options" id="ai-game-options">
           <label class="opt-toggle">
             <input type="checkbox" id="ai-opt-bounce" />
@@ -115,28 +135,32 @@
           </label>
         </div>
         <div class="customize-area">
-          <!-- 玩家1 -->
+          <!-- 我方 -->
           <div class="player-config" data-player="1">
-            <h3>玩家 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
-            <canvas class="tank-preview" width="120" height="120"></canvas>
-            <div class="skin-row" id="ai-skin-row-1"></div>
-            <div class="color-row" id="ai-color-row-1"></div>
-            <div class="talent-box" id="ai-talent-box-1"></div>
-            <div class="skill-info" id="ai-skill-info-1"></div>
+            <div class="team-head">
+              <h3>我方 <small>WASD · 空格射击 · <b>B</b>技能 · <b>G</b>手榴弹 · <b>H</b>导弹</small></h3>
+              <div class="team-size-ctrl">
+                <button class="ts-btn" id="ai-team-dec-1">−</button>
+                <span class="ts-num" id="ai-team-size-1">1</span>
+                <button class="ts-btn" id="ai-team-inc-1">+</button>
+                <span class="ts-hint">第 1 辆由你控制,其余由 AI 协助</span>
+              </div>
+            </div>
+            <div class="team-config" id="ai-team-config-1"></div>
           </div>
           <div class="vs">VS</div>
-          <!-- 人机配置 -->
+          <!-- 敌方(全 AI) -->
           <div class="player-config ai-config" data-player="2">
-            <h3>人机 <small>由 AI 控制</small></h3>
-            <div class="ai-difficulty-box">
-              <label class="ai-label">难度(攻击强度)</label>
-              <div class="ai-difficulty-row" id="ai-difficulty-row"></div>
+            <div class="team-head">
+              <h3>敌方 <small>全部由 AI 控制</small></h3>
+              <div class="team-size-ctrl">
+                <button class="ts-btn" id="ai-team-dec-2">−</button>
+                <span class="ts-num" id="ai-team-size-2">1</span>
+                <button class="ts-btn" id="ai-team-inc-2">+</button>
+                <span class="ts-hint">敌方坦克数 1-5 辆</span>
+              </div>
             </div>
-            <canvas class="tank-preview" width="120" height="120"></canvas>
-            <div class="skin-row" id="ai-skin-row-2"></div>
-            <div class="color-row" id="ai-color-row-2"></div>
-            <div class="talent-box" id="ai-talent-box-2"></div>
-            <div class="skill-info" id="ai-skill-info-2"></div>
+            <div class="team-config" id="ai-team-config-2"></div>
           </div>
         </div>
         <div class="panel-actions">
@@ -149,26 +173,13 @@
     <!-- 游戏画面 -->
     <section id="screen-game" class="screen">
       <div class="game-hud">
-        <div class="hp-block p1">
-          <div class="hp-top">
-            <span class="hp-label">玩家 1</span>
-            <div class="hp-hearts" id="hp-p1"></div>
-          </div>
-          <div class="skill-hud" id="skill-hud-1"></div>
-          <div class="buff-row" id="buff-row-1"></div>
-        </div>
+        <div class="hp-block p1" id="hud-side-1"></div>
         <div class="game-info">
           <span id="game-map-name"></span>
+          <button class="btn small" id="btn-pause">暂停 (ESC)</button>
           <button class="btn small" id="btn-quit-game">退出</button>
         </div>
-        <div class="hp-block p2">
-          <div class="hp-top">
-            <span class="hp-label" id="hp-label-p2">玩家 2</span>
-            <div class="hp-hearts" id="hp-p2"></div>
-          </div>
-          <div class="skill-hud" id="skill-hud-2"></div>
-          <div class="buff-row" id="buff-row-2"></div>
-        </div>
+        <div class="hp-block p2" id="hud-side-2"></div>
       </div>
       <canvas id="game-canvas" width="900" height="600"></canvas>
       <div id="game-overlay" class="game-overlay hidden">
@@ -178,6 +189,25 @@
           <div class="overlay-actions">
             <button class="btn" id="btn-rematch">再来一局</button>
             <button class="btn primary" id="btn-back-menu">回到主菜单</button>
+          </div>
+        </div>
+      </div>
+      <!-- 接管选择 overlay -->
+      <div id="takeover-overlay" class="game-overlay hidden">
+        <div class="overlay-card takeover-card-wrap">
+          <h2 id="takeover-title">坦克被击毁!</h2>
+          <p class="overlay-sub">选择一辆同方存活坦克接管:</p>
+          <div class="takeover-list" id="takeover-list"></div>
+        </div>
+      </div>
+      <!-- 暂停 overlay -->
+      <div id="pause-overlay" class="game-overlay hidden">
+        <div class="overlay-card">
+          <h2>游戏暂停</h2>
+          <p>按 ESC 或点击下方按钮继续</p>
+          <div class="overlay-actions">
+            <button class="btn primary" id="btn-resume">继续游戏</button>
+            <button class="btn" id="btn-pause-menu">回到主菜单</button>
           </div>
         </div>
       </div>
@@ -193,8 +223,18 @@
               <button class="tool-btn active" data-tool="empty"><span class="swatch empty"></span>清除</button>
               <button class="tool-btn" data-tool="brick"><span class="swatch brick"></span>砖墙(可摧毁)</button>
               <button class="tool-btn" data-tool="steel"><span class="swatch steel"></span>钢板(不可摧毁)</button>
+              <button class="tool-btn" data-tool="oneway"><span class="swatch oneway"></span>单向方块</button>
               <button class="tool-btn" data-tool="spawn1"><span class="swatch spawn1">1</span>玩家1出生点</button>
               <button class="tool-btn" data-tool="spawn2"><span class="swatch spawn2">2</span>玩家2出生点</button>
+            </div>
+            <div class="tool-group oneway-dir-group" id="oneway-dir-group" style="display:none;">
+              <label class="dir-label">单向方向(子弹可穿过方向)</label>
+              <div class="dir-row">
+                <button class="dir-btn" data-dir="0">↑ 上</button>
+                <button class="dir-btn" data-dir="1">→ 右</button>
+                <button class="dir-btn" data-dir="2">↓ 下</button>
+                <button class="dir-btn" data-dir="3">← 左</button>
+              </div>
             </div>
             <div class="tool-group">
               <label>地图名称
@@ -246,12 +286,32 @@
           <h3>规则与系统</h3>
           <ul>
             <li>基础 <b>7 点生命</b>,可被天赋与道具增强,归零即败。</li>
+            <li><b>多坦克队伍</b>:每方最多 5 辆坦克。第 1 辆由玩家控制,其余由 AI 协助。一方所有坦克被消灭即判败。</li>
+            <li><b>参战玩家</b>:可选 1 人(仅玩家1)或 2 人(玩家1+玩家2)。1 人模式下蓝方第 1 辆也由 AI 接管。</li>
+            <li><b>阵营颜色</b>:红方统一红色,蓝方统一蓝色,便于辨识敌我。</li>
+            <li><b>同方协作</b>:同方坦克可互相穿过(不卡位),且炮弹/火焰/手榴弹/导弹均不会伤害队友。</li>
+            <li><b>死亡接管</b>:玩家操作的坦克被击毁后,可从同方存活的 AI 坦克中选一辆接管控制,继续战斗。若无同方存活坦克则判败。</li>
+            <li><b>每辆坦克均可独立配置</b>:皮肤(经典/重型/突击/守卫/机枪/喷火/虎式/T-34/谢尔曼/丘吉尔/豹式/F-16/苏-27/A-10/B-52/阿帕奇)和天赋点(防/速/攻 5 点分配),包括 AI 坦克也可自由调整。</li>
             <li>砖墙(橙色)可被炮弹摧毁,钢板(灰色)坚不可摧。</li>
+            <li><b>单向方块</b>(青绿):编辑器专属,不可摧毁、坦克不可穿过。仅允许指定方向的炮弹穿过(手榴弹/导弹均不可穿过),可调节上下左右方向,适合制造单向射击优势。</li>
             <li><b>天赋</b>:每人 5 点,分配到 防御(+生命)/速度(+移速)/攻击(+炮弹伤害)。</li>
-            <li><b>皮肤技能</b>:经典=三连射击;重型=钢铁护盾;突击=极速冲刺;守卫=紧急修复;机枪=弹幕扫射。</li>
+            <li><b>皮肤技能</b>:经典=三连射击;重型=钢铁护盾;突击=极速冲刺;守卫=紧急修复;机枪=弹幕扫射;喷火=烈焰风暴;虎式=重炮轰击;T-34=苏维埃冲锋;谢尔曼=火力压制;丘吉尔=装甲堡垒;豹式=穿甲狙击;F-16=响尾蛇弹幕;苏-27=眼镜蛇机动;A-10=疣猪扫射;B-52=地毯轰炸;阿帕奇=地狱火导弹。</li>
+            <li><b>飞机角色</b>(可飞越所有墙壁,炮弹穿透砖墙):<br>
+              <b>F-16 战隼</b>(美国):HP 4/速 3.2/快射。技能「响尾蛇弹幕」发射 3 发追踪弹。<br>
+              <b>苏-27 侧卫</b>(苏联):HP 5/速 3.0/均衡。技能「眼镜蛇机动」2 秒无敌 + 移速 x2.2。<br>
+              <b>A-10 疣猪</b>(美国):HP 6/速 2.5/攻 2。技能「疣猪扫射」5 发穿甲弹扇形。<br>
+              <b>B-52 轰炸机</b>(美国):HP 7/速 2.0/攻 3。技能「地毯轰炸」投下 3 颗高伤大炸弹。<br>
+              <b>阿帕奇直升机</b>(美国):HP 5/速 2.8。技能「地狱火导弹」发射穿透墙壁的追踪导弹。</li>
             <li><b>机关枪坦克</b>:天生连发,射速远超其他坦克,技能为扇形 5 发高速弹幕。</li>
+            <li><b>喷火坦克</b>:按住开火键可持续喷射火焰(射程 3 格,几乎无冷却),火焰能烧毁砖墙、对敌方坦克造成持续伤害(被击中后仍有 30 帧无敌)。技能「烈焰风暴」开启后 6 秒内射程翻倍至 6 格。</li>
+            <li><b>虎式坦克</b>(原型:德国虎I):超高装甲(HP 10)、高伤害(攻击 2)、但移速慢、装填慢。技能「重炮轰击」发射穿透砖墙的 2 倍伤害重型炮弹。</li>
+            <li><b>T-34 坦克</b>(原型:苏联 T-34):均衡型、机动性好(移速 2.5)。技能「苏维埃冲锋」3 秒移速 x2.2 + 减伤 50%(金色光环)。</li>
+            <li><b>谢尔曼坦克</b>(原型:美国 M4 谢尔曼):快速装填(冷却 14 帧)、量产型。技能「火力压制」5 秒无冷却连发。</li>
+            <li><b>丘吉尔坦克</b>(原型:英国步兵坦克):极高装甲(HP 11)、极慢(移速 1.3)。技能「装甲堡垒」6 秒无敌 + 反弹敌方炮弹(钢蓝色光环)。</li>
+            <li><b>豹式坦克</b>(原型:德国豹式):高速(移速 2.8)、高穿甲(攻击 2)。技能「穿甲狙击」发射穿透所有墙壁的高速穿甲弹。</li>
+            <li><b>暂停</b>:游戏中按 ESC 或点击「暂停」按钮可随时暂停/继续。</li>
             <li><b>手榴弹</b>(4颗):沿朝向飞出,1.5 秒引信,爆炸范围伤害 2 点+毁砖,可被子弹击毁。</li>
-            <li><b>追踪导弹</b>(1颗):自动追踪敌方坦克,爆炸范围伤害 3 点+毁砖,可被子弹击毁。</li>
+            <li><b>追踪导弹</b>(1颗):自动追踪最近的敌方坦克,爆炸范围伤害 3 点+毁砖,可被子弹击毁。</li>
             <li><b>地图道具</b>:血+ / 连发 / 2x攻 / 加速 / 护盾,捡到即生效。</li>
             <li><b>钢板反弹</b>(可选):炮弹碰钢板最多反弹 2 次,第 3 次消失。</li>
             <li><b>人机对战</b>:6 档难度(菜鸟/新手/普通/困难/噩梦/地狱),难度越高 AI 攻击越凶猛、预判越精准、会使用手榴弹和导弹。</li>
@@ -275,48 +335,5 @@
   <script src="js/ai.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/app.js"></script>
-  <script>
-  (function() {
-    var PWD_KEY = 'tank_game_pwd_v1';
-    var CORRECT_PWD = 'hkdzbk@2608';
-    var lock = document.getElementById('pwd-lock');
-    var app = document.getElementById('app');
-    var input = document.getElementById('pwd-input');
-    var btn = document.getElementById('pwd-btn');
-    var msg = document.getElementById('pwd-msg');
-
-    function unlock() {
-      lock.style.display = 'none';
-      app.style.display = 'block';
-      localStorage.setItem(PWD_KEY, '1');
-    }
-
-    function checkPwd() {
-      var val = input.value.trim();
-      if (!val) {
-        msg.textContent = '请输入密码';
-        return;
-      }
-      if (val === CORRECT_PWD) {
-        msg.textContent = '';
-        unlock();
-      } else {
-        msg.textContent = '密码错误，请重试';
-        input.value = '';
-        input.focus();
-      }
-    }
-
-    if (localStorage.getItem(PWD_KEY) === '1') {
-      unlock();
-    }
-
-    btn.addEventListener('click', checkPwd);
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') checkPwd();
-    });
-    setTimeout(function() { input.focus(); }, 100);
-  })();
-  </script>
 </body>
 </html>

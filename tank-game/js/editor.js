@@ -4,6 +4,7 @@ class MapEditor {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.tool = 'brick';
+    this.oneWayDir = 1; // 单向方块默认方向: DIR.RIGHT(→)
     this.painting = false;
     this.eraseMode = false;
     this.grid = this.emptyGrid();
@@ -65,7 +66,11 @@ class MapEditor {
       // 出生点格子不被覆盖成方块
       const isSpawn = (this.spawn1.x === x && this.spawn1.y === y) || (this.spawn2.x === x && this.spawn2.y === y);
       if (isSpawn && tool !== 'empty') return;
-      const val = tool === 'brick' ? 1 : tool === 'steel' ? 2 : 0;
+      let val;
+      if (tool === 'brick') val = 1;
+      else if (tool === 'steel') val = 2;
+      else if (tool === 'oneway') val = 3 + this.oneWayDir;
+      else val = 0;
       this.grid[y][x] = val;
     }
     this.render();
@@ -80,6 +85,11 @@ class MapEditor {
 
   setTool(tool) {
     this.tool = tool;
+  }
+
+  setOneWayDir(dir) {
+    this.oneWayDir = dir;
+    this.render();
   }
 
   loadFromMap(mapData) {

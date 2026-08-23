@@ -1,10 +1,11 @@
 // 方块绘制、爆炸粒子、地图技能道具
-// grid 值: 0空 1砖 2钢
+// grid 值: 0空 1砖 2钢 3单向↑ 4单向→ 5单向↓ 6单向←
 
 function drawBlock(ctx, x, y, type) {
   const px = x * CELL, py = y * CELL;
   if (type === 1) drawBrick(ctx, px, py);
   else if (type === 2) drawSteel(ctx, px, py);
+  else if (type >= 3 && type <= 6) drawOneWay(ctx, px, py, type);
 }
 
 // 砖墙: 整洁的正方形(无碎纹)
@@ -58,6 +59,45 @@ function drawSteel(ctx, px, py) {
   ctx.strokeStyle = '#1f2937';
   ctx.lineWidth = 1;
   ctx.strokeRect(px + 0.5, py + 0.5, CELL - 1, CELL - 1);
+}
+
+// 单向方块: 不可摧毁,坦克不可穿过,仅允许指定方向的子弹穿过
+// type: 3=↑ 4=→ 5=↓ 6=← (对应 DIR 值 +3)
+function drawOneWay(ctx, px, py, type) {
+  const dir = type - 3; // 0=up 1=right 2=down 3=left
+  // 底色: 青绿渐变,区别于钢板
+  const grd = ctx.createLinearGradient(px, py, px + CELL, py + CELL);
+  grd.addColorStop(0, '#5eead4');
+  grd.addColorStop(0.5, '#14b8a6');
+  grd.addColorStop(1, '#0d9488');
+  ctx.fillStyle = grd;
+  ctx.fillRect(px, py, CELL, CELL);
+  // 高光
+  ctx.fillStyle = 'rgba(255,255,255,.2)';
+  ctx.fillRect(px + 2, py + 2, CELL - 4, 4);
+  // 描边
+  ctx.strokeStyle = '#0f766e';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
+  // 方向箭头: 指示子弹可穿过的方向
+  ctx.save();
+  ctx.translate(px + CELL / 2, py + CELL / 2);
+  ctx.rotate(dir * Math.PI / 2);
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.strokeStyle = '#134e4a';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(0, -8);
+  ctx.lineTo(-5, 2);
+  ctx.lineTo(-2.5, 2);
+  ctx.lineTo(-2.5, 7);
+  ctx.lineTo(2.5, 7);
+  ctx.lineTo(2.5, 2);
+  ctx.lineTo(5, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawBackground(ctx) {

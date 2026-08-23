@@ -62,6 +62,7 @@ const SFX = {
     switch (name) {
       case 'shoot':    this.tone(220, 0.06, 'square', 0.12, 80); break;
       case 'mg':       this.tone(180, 0.03, 'sawtooth', 0.08, 60); break;  // 机关枪
+      case 'flame':    this.noise(0.05, 0.08, 1200); break;  // 喷火(短促噪声)
       case 'hit':      this.noise(0.12, 0.25, 1500); this.tone(150, 0.08, 'sawtooth', 0.15, 40); break;
       case 'brick':    this.noise(0.15, 0.2, 800); break;
       case 'spark':    this.tone(800, 0.04, 'sine', 0.1, 1200); break;
