@@ -106,7 +106,7 @@ class MapEditor {
     this.gridH = h;
     this.cell = cs;
     this.resizeCanvas();
-    const parsed = parseMap(mapData.rows);
+    const parsed = parseMap(mapData);
     this.grid = parsed.grid.map(r => r.slice());
     this.spawn1 = { ...parsed.spawn1 };
     this.spawn2 = { ...parsed.spawn2 };

@@ -174,7 +174,7 @@ const App = {
 
   renderThumbnail(canvas, mapData) {
     const ctx = canvas.getContext('2d');
-    const parsed = parseMap(mapData.rows);
+    const parsed = parseMap(mapData);
     const w = parsed.grid[0].length;
     const h = parsed.grid.length;
     ctx.fillStyle = '#1a1d2e';
