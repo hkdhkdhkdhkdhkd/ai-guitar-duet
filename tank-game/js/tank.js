@@ -98,7 +98,7 @@ class Tank {
     this.player = player;          // 1 = 玩家1方, 2 = 玩家2方
     this.indexInTeam = 0;          // 己方编号(0..N-1),用于 HUD 显示
     this.isHuman = !!isHuman;      // 是否人类控制(true=P1/P2, false=AI)
-    this.size = 24;
+    this.size = Math.floor(cell * 0.8);
     this.color = color;
     this.skin = skin;
     this.controls = controls;      // {up,down,left,right,fire,skill,grenade,missile}
@@ -537,7 +537,7 @@ class Tank {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.dir * Math.PI / 2);
-    drawTankBody(ctx, this.skin, this.color, this.player, (this.invuln > 0 || this.shieldTimer > 0), this.indexInTeam || 0);
+    drawTankBody(ctx, this.skin, this.color, this.player, (this.invuln > 0 || this.shieldTimer > 0), this.indexInTeam || 0, this.half);
     ctx.restore();
 
     // 护盾环
@@ -602,8 +602,8 @@ class Tank {
   }
 }
 
-function drawTankBody(ctx, skin, color, player, invuln, playerNum) {
-  const half = 12;
+function drawTankBody(ctx, skin, color, player, invuln, playerNum, half) {
+  half = half || 12;
   const dark = shadeColor(color, -35);
   const tread = '#2b2f3a';
   if (invuln) ctx.globalAlpha = 0.65;
