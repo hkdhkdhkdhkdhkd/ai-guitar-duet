@@ -47,6 +47,8 @@ class Game {
     this.cell = parsed.cellSize;
     this.bigBattlefield = parsed.bigBattlefield;
     this.mapName = mapData.name || '未命名地图';
+    this.canvas.width = this.gridW * this.cell;
+    this.canvas.height = this.gridH * this.cell;
   }
 
   // 多坦克配置入口
