@@ -173,11 +173,15 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #fff;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
-.hp-block { display: flex; flex-direction: column; gap: 5px; min-width: 230px; }
+.hp-block { display: flex; flex-direction: column; gap: 3px; min-width: 200px; max-height: 22vh; overflow-y: auto; scrollbar-width: thin; }
+.hp-block::-webkit-scrollbar { width: 4px; }
+.hp-block::-webkit-scrollbar-track { background: transparent; }
+.hp-block::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 2px; }
 .hp-block.p2 { align-items: flex-end; }
 .hp-block.p2 .hp-top { flex-direction: row-reverse; }
 .hp-top { display: flex; align-items: center; gap: 8px; }
@@ -269,12 +273,15 @@ html, body {
 #screen-game {
   flex-direction: column;
   align-items: center;
+  overflow: hidden;
+  padding: 8px;
 }
 
 .canvas-viewport {
   width: 100%;
   max-width: 1200px;
-  max-height: 78vh;
+  flex: 1;
+  min-height: 300px;
   overflow: auto;
   background: #0f172a;
   border-radius: 12px;
@@ -468,7 +475,7 @@ html, body {
 .takeover-card .tc-talents { font-size: 11px; color: var(--muted); margin-top: 4px; margin-left: 22px; }
 
 /* 多坦克游戏 HUD */
-.hud-tank { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; border-left: 3px solid var(--p1); }
+.hud-tank { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 2px 5px; margin-bottom: 2px; border-left: 3px solid var(--p1); }
 .hp-block.p2 .hud-tank { border-left-color: var(--p2); }
 .hud-tank-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
 .hud-role { font-size: 11px; font-weight: 700; }
