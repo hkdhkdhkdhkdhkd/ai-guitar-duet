@@ -102,7 +102,7 @@ class TankAI {
 
     // 1. 紧急躲避:如果有子弹/导弹飞向自己
     const dodgeDir = this.checkIncomingThreats();
-    if (dodgeDir && Math.random() < this.meta.dodgeChance) {
+    if (dodgeDir && RNG.random() < this.meta.dodgeChance) {
       return dodgeDir;
     }
 
@@ -115,7 +115,7 @@ class TankAI {
 
     // 3. 道具拾取
     const puDir = this.findNearestPowerUp();
-    if (puDir && (hpRatio < 0.5 || Math.random() < 0.3)) {
+    if (puDir && (hpRatio < 0.5 || RNG.random() < 0.3)) {
       opts.push({ dir: puDir, weight: 4 });
     }
 
@@ -169,22 +169,22 @@ class TankAI {
     }
 
     // 8. 随机游走
-    if (Math.random() < this.meta.wanderChance) {
+    if (RNG.random() < this.meta.wanderChance) {
       const dirs = ['up', 'down', 'left', 'right'];
-      opts.push({ dir: dirs[Math.floor(Math.random() * 4)], weight: 2 });
+      opts.push({ dir: dirs[Math.floor(RNG.random() * 4)], weight: 2 });
     }
 
     // 筛选可行方向
     const valid = opts.filter(o => this.canMove(o.dir));
     if (valid.length === 0) {
       const all = ['up', 'down', 'left', 'right'].filter(d => this.canMove(d));
-      if (all.length > 0) return all[Math.floor(Math.random() * all.length)];
+      if (all.length > 0) return all[Math.floor(RNG.random() * all.length)];
       return null;
     }
 
     // 加权随机
     const totalW = valid.reduce((s, o) => s + o.weight, 0);
-    let r = Math.random() * totalW;
+    let r = RNG.random() * totalW;
     for (const o of valid) {
       r -= o.weight;
       if (r <= 0) return o.dir;
@@ -260,19 +260,19 @@ class TankAI {
   saferVerticalDir(me) {
     const upOk = me.y > this.cell * 2 && this.canMove('up');
     const downOk = me.y < (this.gridH - 2) * this.cell && this.canMove('down');
-    if (upOk && downOk) return Math.random() < 0.5 ? 'up' : 'down';
+    if (upOk && downOk) return RNG.random() < 0.5 ? 'up' : 'down';
     if (upOk) return 'up';
     if (downOk) return 'down';
-    return Math.random() < 0.5 ? 'up' : 'down';
+    return RNG.random() < 0.5 ? 'up' : 'down';
   }
 
   saferHorizontalDir(me) {
     const leftOk = me.x > this.cell * 2 && this.canMove('left');
     const rightOk = me.x < (this.gridW - 2) * this.cell && this.canMove('right');
-    if (leftOk && rightOk) return Math.random() < 0.5 ? 'left' : 'right';
+    if (leftOk && rightOk) return RNG.random() < 0.5 ? 'left' : 'right';
     if (leftOk) return 'left';
     if (rightOk) return 'right';
-    return Math.random() < 0.5 ? 'left' : 'right';
+    return RNG.random() < 0.5 ? 'left' : 'right';
   }
 
   // 撤退方向:远离目标
@@ -293,9 +293,9 @@ class TankAI {
     // 尝试垂直于目标方向移动
     if (Math.abs(dx) > Math.abs(dy)) {
       // 水平距离远,尝试垂直绕侧
-      return Math.random() < 0.5 ? 'up' : 'down';
+      return RNG.random() < 0.5 ? 'up' : 'down';
     } else {
-      return Math.random() < 0.5 ? 'left' : 'right';
+      return RNG.random() < 0.5 ? 'left' : 'right';
     }
   }
 
@@ -421,11 +421,11 @@ class TankAI {
         if (Math.abs(dy) < tol) {
           if (dx > 0) { k[c.right] = true; k[c.left] = false; }
           if (dx < 0) { k[c.left] = true; k[c.right] = false; }
-          shouldFire = Math.random() < this.meta.fireChance;
+          shouldFire = RNG.random() < this.meta.fireChance;
         } else if (Math.abs(dx) < tol) {
           if (dy > 0) { k[c.down] = true; k[c.up] = false; }
           if (dy < 0) { k[c.up] = true; k[c.down] = false; }
-          shouldFire = Math.random() < this.meta.fireChance;
+          shouldFire = RNG.random() < this.meta.fireChance;
         }
       }
     }
@@ -458,7 +458,7 @@ class TankAI {
     }
 
     // 概率射击(低难度会失误)
-    if (shouldFire && Math.random() > this.meta.fireChance) shouldFire = false;
+    if (shouldFire && RNG.random() > this.meta.fireChance) shouldFire = false;
 
     k[c.fire] = shouldFire;
   }
@@ -515,7 +515,7 @@ class TankAI {
       if (this.targetDist() < this.cell * 5) useSkill = true;
     }
 
-    if (useSkill && Math.random() < this.meta.skillChance) {
+    if (useSkill && RNG.random() < this.meta.skillChance) {
       if (!this.skillPressed) {
         k[c.skill] = true;
         this.skillPressed = true;
@@ -558,11 +558,11 @@ class TankAI {
       throwGrenade = true;
     }
     // 近距离投掷
-    if (dist < this.cell * 3 && Math.random() < 0.3) {
+    if (dist < this.cell * 3 && RNG.random() < 0.3) {
       throwGrenade = true;
     }
 
-    if (throwGrenade && Math.random() < this.meta.grenadeChance) {
+    if (throwGrenade && RNG.random() < this.meta.grenadeChance) {
       this.lastGrenadeAttempt = this.tick;
       if (!this.grenadePressed) {
         k[c.grenade] = true;
@@ -604,7 +604,7 @@ class TankAI {
       launchMissile = true;
     }
 
-    if (launchMissile && Math.random() < this.meta.missileChance) {
+    if (launchMissile && RNG.random() < this.meta.missileChance) {
       this.lastMissileAttempt = this.tick;
       if (!this.missilePressed) {
         k[c.missile] = true;
@@ -644,7 +644,7 @@ class TankAI {
       if (this.stuckTimer > 15) {
         const dirs = ['up', 'down', 'left', 'right'].filter(d => d !== this.currentDir && this.canMove(d));
         if (dirs.length > 0) {
-          this.applyMovement(dirs[Math.floor(Math.random() * dirs.length)]);
+          this.applyMovement(dirs[Math.floor(RNG.random() * dirs.length)]);
         }
         this.stuckTimer = 0;
       }

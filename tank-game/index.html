@@ -44,6 +44,7 @@
         <div class="menu-buttons">
           <button class="btn primary" data-goto="screen-mapselect">开始对战</button>
           <button class="btn" data-goto="screen-ai-battle">人机对战</button>
+          <button class="btn" data-goto="screen-mp">联机对战</button>
           <button class="btn" data-goto="screen-editor">地图编辑器</button>
           <button class="btn" data-goto="screen-help">游戏说明</button>
         </div>
@@ -190,6 +191,125 @@
       </div>
     </section>
 
+    <!-- 联机对战 · 大厅 -->
+    <section id="screen-mp" class="screen">
+      <div class="panel mp-panel">
+        <h2>联机对战 · 大厅</h2>
+        <div class="mp-conn">
+          <label class="mp-field">昵称
+            <input type="text" id="mp-nick" maxlength="10" placeholder="你的名字" />
+          </label>
+          <label class="mp-field">服务器
+            <input type="text" id="mp-server" placeholder="ws://localhost:8081" />
+          </label>
+          <button class="btn primary" id="btn-mp-connect">连接服务器</button>
+          <span class="mp-status" id="mp-status">未连接</span>
+        </div>
+
+        <div class="mp-main" id="mp-main" style="display:none;">
+          <div class="mp-col">
+            <div class="mp-sec-head">
+              <h3>房间列表</h3>
+              <button class="btn small" id="btn-mp-refresh">刷新</button>
+            </div>
+            <div class="mp-room-list" id="mp-room-list"></div>
+            <div class="mp-join-row">
+              <input type="password" id="mp-join-pwd" placeholder="房间密码" />
+              <button class="btn primary" id="btn-mp-join" disabled>加入选中房间</button>
+            </div>
+            <p class="mp-hint" id="mp-join-msg"></p>
+          </div>
+
+          <div class="mp-col">
+            <h3>创建房间</h3>
+            <div class="mp-step" id="mp-create-step1">
+              <p class="mp-hint">创建房间需要密码</p>
+              <div class="mp-create-row">
+                <input type="password" id="mp-create-code" placeholder="创建密码" />
+                <button class="btn" id="btn-mp-create-next">下一步</button>
+              </div>
+              <p class="mp-hint" id="mp-create-code-msg"></p>
+            </div>
+            <div class="mp-step" id="mp-create-step2" style="display:none;">
+              <label class="mp-field">房间名称
+                <input type="text" id="mp-create-name" maxlength="12" placeholder="例如:老王的战场" />
+              </label>
+              <label class="mp-field">房间进入密码
+                <input type="text" id="mp-create-pwd" maxlength="10" placeholder="其他人加入时需要输入" />
+              </label>
+              <button class="btn primary" id="btn-mp-create">创建房间</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn" data-goto="screen-menu">返回主菜单</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 联机对战 · 房间 -->
+    <section id="screen-room" class="screen">
+      <div class="panel room-panel">
+        <div class="room-head">
+          <h2 id="room-title">房间</h2>
+          <span class="room-tag">房间密码:<b id="room-pwd">—</b></span>
+          <span class="room-tag" id="room-host">房主:—</span>
+          <span class="room-tag" id="room-phase"></span>
+        </div>
+        <div class="room-body">
+          <div class="room-left">
+            <div class="mp-sec-head">
+              <h3>成员 <span id="room-count" class="unit-count"></span></h3>
+              <span class="mp-hint">房主可用 红/蓝/观战 按钮调配</span>
+            </div>
+            <div id="room-members" class="room-members"></div>
+            <div class="room-ai">
+              <h3>AI 补位</h3>
+              <div class="room-ai-row">
+                <span class="room-ai-label">红方 AI</span>
+                <button class="ts-btn" id="ai-dec-1">−</button>
+                <span class="ts-num" id="ai-num-1">0</span>
+                <button class="ts-btn" id="ai-inc-1">+</button>
+                <span class="room-ai-label">蓝方 AI</span>
+                <button class="ts-btn" id="ai-dec-2">−</button>
+                <span class="ts-num" id="ai-num-2">0</span>
+                <button class="ts-btn" id="ai-inc-2">+</button>
+              </div>
+              <div class="room-ai-row">
+                <span class="room-ai-label">AI 难度</span>
+                <select id="room-difficulty" class="room-select"></select>
+              </div>
+            </div>
+          </div>
+          <div class="room-right">
+            <h3>我的角色</h3>
+            <div id="room-my-skin" class="room-skin-row"></div>
+            <div id="room-my-talents" class="room-talent-box"></div>
+            <h3>对战设置 <span class="mp-hint">(房主可改)</span></h3>
+            <label class="mp-field">地图
+              <select id="room-map" class="room-select"></select>
+            </label>
+            <label class="opt-toggle">
+              <input type="checkbox" id="room-opt-bounce" />
+              <span>炮弹钢板反弹(最多 2 次)</span>
+            </label>
+            <label class="opt-toggle">
+              <input type="checkbox" id="room-opt-powerups" checked />
+              <span>地图刷新技能道具</span>
+            </label>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" id="btn-room-leave">离开房间</button>
+          <div class="action-right">
+            <button class="btn" id="btn-room-ready">准备</button>
+            <button class="btn primary" id="btn-room-start" disabled>开始游戏</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 排兵布阵 -->
     <section id="screen-deployment" class="screen">
       <div class="panel deploy-panel">
@@ -282,6 +402,7 @@
           <p id="overlay-text"></p>
           <div class="overlay-actions">
             <button class="btn" id="btn-rematch">再来一局</button>
+            <button class="btn primary" id="btn-mp-back-room" style="display:none;">返回房间</button>
             <button class="btn primary" id="btn-back-menu">回到主菜单</button>
           </div>
         </div>
@@ -443,6 +564,7 @@
     </section>
   </div>
 
+  <script src="js/rng.js"></script>
   <script src="js/maps.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/sound.js"></script>
@@ -453,6 +575,7 @@
   <script src="js/game.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/editor.js"></script>
+  <script src="js/net.js"></script>
   <script src="js/app.js"></script>
   <script>
   (function() {

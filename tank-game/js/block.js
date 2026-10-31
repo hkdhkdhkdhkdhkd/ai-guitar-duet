@@ -136,12 +136,12 @@ class Particle {
     this.pieces = [];
     const count = kind === 'hit' ? 14 : kind === 'brick' ? 10 : 6;
     for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const sp = 1 + Math.random() * (kind === 'hit' ? 4 : 3);
+      const a = VRNG.random() * Math.PI * 2;
+      const sp = 1 + VRNG.random() * (kind === 'hit' ? 4 : 3);
       this.pieces.push({
         x: 0, y: 0,
         vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        size: 1.5 + Math.random() * 2.5,
+        size: 1.5 + VRNG.random() * 2.5,
         color: this.pickColor(),
       });
     }
@@ -151,15 +151,15 @@ class Particle {
   pickColor() {
     if (this.kind === 'brick') {
       const arr = ['#ea944c', '#b45309', '#fbbf24', '#78350f'];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return arr[Math.floor(VRNG.random() * arr.length)];
     } else if (this.kind === 'spark') {
       const arr = ['#fbbf24', '#fde68a', '#fff'];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return arr[Math.floor(VRNG.random() * arr.length)];
     } else if (this.kind === 'small') {
       return '#9ca3af';
     } else {
       const arr = ['#ef4444', '#f97316', '#fbbf24', '#fff'];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return arr[Math.floor(VRNG.random() * arr.length)];
     }
   }
 

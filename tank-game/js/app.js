@@ -88,6 +88,7 @@ const App = {
     this.initGameLifecycle();
     this.initAIBattle();
     this.initDeploymentButtons();
+    this.initMP();
     // 音效系统:首次点击任意按钮时初始化
     document.body.addEventListener('click', () => SFX.init(), { once: true });
     document.body.addEventListener('keydown', () => SFX.init(), { once: true });
@@ -568,7 +569,7 @@ const App = {
         wrap.dataset.player = player;
         wrap.dataset.idx = idx;
         const role = isHuman
-          ? `玩家 ${player}`
+          ? (cfg.ownerNick || `玩家 ${player}`)
           : `AI #${idx + 1}`;
         wrap.innerHTML = `
           <div class="hud-tank-head">
@@ -701,6 +702,9 @@ const App = {
     const overlay = document.getElementById('game-overlay');
     const title = document.getElementById('overlay-title');
     const text = document.getElementById('overlay-text');
+    document.getElementById('btn-rematch').style.display = '';
+    document.getElementById('btn-back-menu').style.display = '';
+    document.getElementById('btn-mp-back-room').style.display = 'none';
     // 仅人机模式或单人模式: 玩家1方获胜=你赢
     const player1IsHumanSolo = this.aiMode || this.playerCount === 1;
     if (winner) {
@@ -772,6 +776,11 @@ const App = {
       this.go('screen-menu');
     });
     document.getElementById('btn-quit-game').addEventListener('click', () => {
+      if (this.game && this.game.mpMode) {
+        this.leaveMPGameView();
+        this.go(MP.room ? 'screen-room' : 'screen-mp');
+        return;
+      }
       if (this.game) this.game.stop();
       if (this.testFromEditor) {
         this.testFromEditor = false;
@@ -916,6 +925,8 @@ const App = {
   togglePause(isPaused) {
     const overlay = document.getElementById('pause-overlay');
     if (!overlay || !this.game) return;
+    // 联机模式不能暂停:会导致各端模拟不同步
+    if (this.game.mpMode) return;
     if (isPaused === undefined) isPaused = overlay.classList.contains('hidden');
     if (isPaused) {
       this.game.stop();
@@ -1829,6 +1840,476 @@ const App = {
     document.getElementById('btn-editor-delete').style.display = 'none';
     this.refreshEditorMapSelect();
     alert('地图已保存!');
+  },
+
+  // ====== 联机对战 ======
+  initMP() {
+    const NICK_KEY = 'tank_mp_nick';
+    const SERVER_KEY = 'tank_mp_server';
+    const nickInput = document.getElementById('mp-nick');
+    const serverInput = document.getElementById('mp-server');
+    nickInput.value = localStorage.getItem(NICK_KEY) || '';
+    serverInput.value = localStorage.getItem(SERVER_KEY) || '';
+    serverInput.placeholder = MP.defaultUrl();
+    this.mpSelectedRoomId = null;
+
+    MP.cb = {
+      status: (msg) => this.mpStatus(msg),
+      welcome: () => {
+        localStorage.setItem(NICK_KEY, nickInput.value.trim());
+        localStorage.setItem(SERVER_KEY, serverInput.value.trim());
+        document.getElementById('mp-main').style.display = '';
+      },
+      rooms: (list) => this.renderMPRooms(list),
+      room: (state) => this.onMPRoom(state),
+      start: (cfg) => this.startMPGame(cfg),
+      error: (msg) => this.mpStatus('⚠ ' + msg),
+      desync: () => this.mpStatus('⚠ 检测到同步偏差,建议重新开局'),
+      closed: (wasMatch) => {
+        document.getElementById('mp-main').style.display = 'none';
+        if (wasMatch) {
+          this.leaveMPGameView();
+          this.go('screen-mp');
+        }
+      },
+    };
+
+    document.getElementById('btn-mp-connect').addEventListener('click', () => {
+      const nick = nickInput.value.trim() || '玩家';
+      localStorage.setItem(NICK_KEY, nick);
+      localStorage.setItem(SERVER_KEY, serverInput.value.trim());
+      MP.connect(serverInput.value.trim() || MP.defaultUrl(), nick);
+    });
+    document.getElementById('btn-mp-refresh').addEventListener('click', () => MP.send({ t: 'listRooms' }));
+
+    // 创建房间:第一步校验创建密码
+    document.getElementById('btn-mp-create-next').addEventListener('click', () => {
+      const code = document.getElementById('mp-create-code').value.trim();
+      const msgEl = document.getElementById('mp-create-code-msg');
+      if (code !== '1122') {
+        msgEl.textContent = '密码错误';
+        document.getElementById('mp-create-code').value = '';
+        return;
+      }
+      msgEl.textContent = '';
+      document.getElementById('mp-create-step1').style.display = 'none';
+      document.getElementById('mp-create-step2').style.display = '';
+    });
+    document.getElementById('btn-mp-create').addEventListener('click', () => {
+      const name = document.getElementById('mp-create-name').value.trim();
+      const pwd = document.getElementById('mp-create-pwd').value.trim();
+      const msgEl = document.getElementById('mp-create-code-msg');
+      if (!pwd) { msgEl.textContent = '请设置房间进入密码'; return; }
+      msgEl.textContent = '';
+      MP.createRoom('1122', name || '未命名房间', pwd);
+    });
+
+    // 加入房间
+    document.getElementById('btn-mp-join').addEventListener('click', () => {
+      if (!this.mpSelectedRoomId) return;
+      const pwd = document.getElementById('mp-join-pwd').value.trim();
+      MP.joinRoom(this.mpSelectedRoomId, pwd);
+    });
+
+    // 房间内操作
+    document.getElementById('btn-room-leave').addEventListener('click', () => {
+      MP.leaveRoom();
+      MP.stopMatch();
+      this.go('screen-mp');
+    });
+    document.getElementById('btn-room-ready').addEventListener('click', () => {
+      const me = this.mpRoom && this.mpRoom.members.find(m => m.id === MP.id);
+      MP.setReady(!(me && me.ready));
+    });
+    document.getElementById('btn-room-start').addEventListener('click', () => {
+      const st = this.mpRoom;
+      if (!st) return;
+      const team1 = st.members.filter(m => m.team === 1).length + (st.aiCount[1] || 0);
+      const team2 = st.members.filter(m => m.team === 2).length + (st.aiCount[2] || 0);
+      if (team1 === 0 || team2 === 0) {
+        this.mpStatus('⚠ 双方都需要至少 1 辆坦克(可加 AI 补位)');
+        return;
+      }
+      MP.requestStart();
+    });
+
+    [1, 2].forEach(team => {
+      document.getElementById('ai-dec-' + team).addEventListener('click', () => {
+        const st = this.mpRoom;
+        if (!st || st.hostId !== MP.id) return;
+        MP.setAICount(team, Math.max(0, (st.aiCount[team] || 0) - 1));
+      });
+      document.getElementById('ai-inc-' + team).addEventListener('click', () => {
+        const st = this.mpRoom;
+        if (!st || st.hostId !== MP.id) return;
+        MP.setAICount(team, Math.min(19, (st.aiCount[team] || 0) + 1));
+      });
+    });
+
+    const diffSel = document.getElementById('room-difficulty');
+    diffSel.innerHTML = Object.keys(AI_DIFFICULTY)
+      .map(k => `<option value="${k}">${AI_DIFFICULTY[k].name}</option>`).join('');
+    diffSel.addEventListener('change', () => {
+      const st = this.mpRoom;
+      if (!st || st.hostId !== MP.id) return;
+      MP.setOptions({ difficulty: diffSel.value });
+    });
+
+    document.getElementById('room-map').addEventListener('change', () => {
+      const st = this.mpRoom;
+      if (!st || st.hostId !== MP.id) return;
+      const sel = document.getElementById('room-map');
+      const m = getAllMaps().find(x => x.id === sel.value);
+      if (!m) return;
+      MP.selectMap(m.id, m.name, m.custom ? {
+        name: m.name, rows: m.rows, width: m.width, height: m.height,
+        cellSize: m.cellSize, bigBattlefield: m.bigBattlefield,
+      } : null);
+    });
+
+    document.getElementById('room-opt-bounce').addEventListener('change', (e) => {
+      if (!this.mpRoom || this.mpRoom.hostId !== MP.id) return;
+      MP.setOptions({ bounce: e.target.checked });
+    });
+    document.getElementById('room-opt-powerups').addEventListener('change', (e) => {
+      if (!this.mpRoom || this.mpRoom.hostId !== MP.id) return;
+      MP.setOptions({ powerups: e.target.checked });
+    });
+
+    // 游戏结束返回房间
+    document.getElementById('btn-mp-back-room').addEventListener('click', () => {
+      this.leaveMPGameView();
+      this.go(MP.room ? 'screen-room' : 'screen-mp');
+    });
+  },
+
+  mpStatus(msg) {
+    const el = document.getElementById('mp-status');
+    if (el) el.textContent = msg;
+  },
+
+  renderMPRooms(list) {
+    const box = document.getElementById('mp-room-list');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!list || list.length === 0) {
+      box.innerHTML = '<div class="mp-room-empty">暂无房间,先创建一个吧</div>';
+      this.mpSelectedRoomId = null;
+      document.getElementById('btn-mp-join').disabled = true;
+      return;
+    }
+    list.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'mp-room-card' + (this.mpSelectedRoomId === r.id ? ' selected' : '');
+      card.innerHTML = `
+        <div>
+          <div class="mp-room-name">${this.mpEscape(r.name)}</div>
+          <div class="mp-room-meta">房主 ${this.mpEscape(r.hostName)} · ${r.players}/${r.max} 人</div>
+        </div>
+        <span class="mp-room-lock">${r.hasPassword ? '🔒 需要密码' : '开放'}</span>
+      `;
+      card.addEventListener('click', () => {
+        this.mpSelectedRoomId = r.id;
+        this.renderMPRooms(list);
+      });
+      box.appendChild(card);
+    });
+    document.getElementById('btn-mp-join').disabled = !this.mpSelectedRoomId;
+  },
+
+  mpEscape(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  },
+
+  onMPRoom(state) {
+    this.mpRoom = state;
+    if (state.phase === 'playing') return;      // 对局中不切界面
+    const cur = document.getElementById('screen-room');
+    if (!cur.classList.contains('active')) {
+      document.getElementById('btn-rematch').style.display = '';
+      document.getElementById('btn-mp-back-room').style.display = 'none';
+      document.getElementById('btn-back-menu').style.display = '';
+      document.getElementById('btn-pause').style.display = '';
+      this.go('screen-room');
+    }
+    this.renderRoom(state);
+    // 结算展示片刻后由房主自动回到大厅阶段,便于原房间再来一局
+    if (state.phase === 'result') {
+      if (state.hostId === MP.id && !this._resultTimer) {
+        this._resultTimer = setTimeout(() => {
+          this._resultTimer = null;
+          if (MP.room && MP.room.phase === 'result') MP.backToLobby();
+        }, 2600);
+      }
+    } else if (this._resultTimer) {
+      clearTimeout(this._resultTimer);
+      this._resultTimer = null;
+    }
+  },
+
+  renderRoom(st) {
+    const myId = MP.id;
+    const me = st.members.find(m => m.id === myId);
+    const isHost = st.hostId === myId;
+    document.getElementById('room-title').textContent = st.name || '房间';
+    document.getElementById('room-pwd').textContent = st.password || '—';
+    const host = st.members.find(m => m.id === st.hostId);
+    document.getElementById('room-host').textContent = '房主:' + (host ? host.nick : '—');
+    document.getElementById('room-count').textContent = `${st.members.length}/8`;
+    const phaseEl = document.getElementById('room-phase');
+    if (st.phase === 'result') {
+      phaseEl.textContent = st.lastWinner
+        ? `上一局:${st.lastWinner === 1 ? '红方' : '蓝方'}获胜`
+        : '上一局:平局';
+    } else {
+      phaseEl.textContent = '等待准备';
+    }
+
+    // ---- 成员列表 ----
+    const box = document.getElementById('room-members');
+    box.innerHTML = '';
+    st.members.forEach(m => {
+      const card = document.createElement('div');
+      card.className = 'member-card' + (m.id === myId ? ' me' : '');
+      const badges = [];
+      if (m.id === st.hostId) badges.push('<span class="member-badge host">房主</span>');
+      if (m.team === 1) badges.push('<span class="member-badge team1">红方</span>');
+      if (m.team === 2) badges.push('<span class="member-badge team2">蓝方</span>');
+      if (m.team === 0) badges.push('<span class="member-badge spectator">未分队</span>');
+      if (m.ready) badges.push('<span class="member-badge ready">已准备</span>');
+      const skin = TANK_SKINS.find(s => s.id === m.skin) || TANK_SKINS[0];
+      const t = m.talents || { defense: 0, speed: 0, attack: 0 };
+      const sk = SKILL_DEF[m.skin] || SKILL_DEF.classic;
+      card.innerHTML = `
+        <div class="member-head">
+          <span class="member-name">${this.mpEscape(m.nick)}</span>${badges.join('')}
+        </div>
+        <div class="member-body">
+          <canvas class="member-preview" width="46" height="46"></canvas>
+          <div class="member-info">
+            ${skin.name} · 防${t.defense} 速${t.speed} 攻${t.attack}<br>
+            技能 ${sk.name}
+          </div>
+        </div>
+      `;
+      const cv = card.querySelector('.member-preview');
+      const ctx = cv.getContext('2d');
+      ctx.save();
+      ctx.translate(23, 23);
+      ctx.scale(1.7, 1.7);
+      drawTankBody(ctx, m.skin, m.team === 2 ? this.teamColor(2) : this.teamColor(1), m.team === 2 ? 2 : 1, false, 0);
+      ctx.restore();
+
+      // 房主分队按钮
+      if (isHost) {
+        const btns = document.createElement('div');
+        btns.className = 'member-team-btns';
+        [['1', '红方', 'on1'], ['2', '蓝方', 'on2'], ['0', '观战', 'on0']].forEach(([team, label, cls]) => {
+          const b = document.createElement('button');
+          b.textContent = label;
+          if (m.team === parseInt(team, 10)) b.classList.add(cls);
+          b.addEventListener('click', () => MP.setTeam(m.id, parseInt(team, 10)));
+          btns.appendChild(b);
+        });
+        card.appendChild(btns);
+      }
+      box.appendChild(card);
+    });
+
+    // ---- 我的角色 ----
+    const skinBox = document.getElementById('room-my-skin');
+    skinBox.innerHTML = '';
+    const mySkin = me ? me.skin : 'classic';
+    TANK_SKINS.forEach(s => {
+      const b = document.createElement('button');
+      b.className = 'skin-btn' + (mySkin === s.id ? ' selected' : '');
+      b.textContent = s.name;
+      b.addEventListener('click', () => {
+        MP.setProfile(s.id, me ? me.talents : { defense: 0, speed: 0, attack: 0 });
+      });
+      skinBox.appendChild(b);
+    });
+    if (me) this.mpRenderTalents(me);
+
+    // ---- 房主设置 ----
+    document.getElementById('ai-num-1').textContent = st.aiCount[1] || 0;
+    document.getElementById('ai-num-2').textContent = st.aiCount[2] || 0;
+    document.getElementById('room-difficulty').value = st.difficulty || 'normal';
+    document.getElementById('room-difficulty').disabled = !isHost;
+    document.getElementById('ai-dec-1').disabled = !isHost;
+    document.getElementById('ai-inc-1').disabled = !isHost;
+    document.getElementById('ai-dec-2').disabled = !isHost;
+    document.getElementById('ai-inc-2').disabled = !isHost;
+
+    const mapSel = document.getElementById('room-map');
+    const maps = getAllMaps();
+    mapSel.innerHTML = maps.map(m =>
+      `<option value="${m.id}">${this.mpEscape(m.name)}${m.custom ? ' (自制)' : ''}</option>`
+    ).join('');
+    if (!maps.some(m => m.id === st.mapId)) {
+      mapSel.innerHTML += `<option value="${st.mapId}">${this.mpEscape(st.mapName || '自定义地图')}</option>`;
+    }
+    mapSel.value = st.mapId;
+    mapSel.disabled = !isHost;
+    document.getElementById('room-opt-bounce').checked = !!st.options.bounce;
+    document.getElementById('room-opt-powerups').checked = st.options.powerups !== false;
+    document.getElementById('room-opt-bounce').disabled = !isHost;
+    document.getElementById('room-opt-powerups').disabled = !isHost;
+
+    // ---- 按钮状态 ----
+    const readyBtn = document.getElementById('btn-room-ready');
+    readyBtn.textContent = (me && me.ready) ? '取消准备' : '准备';
+    readyBtn.style.display = isHost ? 'none' : '';
+    const others = st.members.filter(m => m.id !== st.hostId);
+    const allReady = others.every(m => m.ready);
+    const startBtn = document.getElementById('btn-room-start');
+    startBtn.style.display = isHost ? '' : 'none';
+    startBtn.disabled = !isHost || !allReady;
+    startBtn.textContent = allReady ? '开始游戏' : '等待队员准备';
+  },
+
+  mpRenderTalents(me) {
+    const box = document.getElementById('room-my-talents');
+    box.innerHTML = '';
+    const t = me.talents || { defense: 0, speed: 0, attack: 0 };
+    const used = t.defense + t.speed + t.attack;
+    const remain = TALENT_POINTS - used;
+    const head = document.createElement('div');
+    head.className = 'talent-points';
+    head.textContent = `天赋点:剩余 ${remain} / ${TALENT_POINTS}`;
+    box.appendChild(head);
+    Object.keys(TALENT_META).forEach(key => {
+      const meta = TALENT_META[key];
+      const row = document.createElement('div');
+      row.className = 'talent-row';
+      const left = document.createElement('div');
+      left.innerHTML = `<span class="t-name">${meta.name}</span> <span class="t-per">${meta.per}</span>`;
+      row.appendChild(left);
+      const ctrl = document.createElement('div');
+      ctrl.className = 't-ctrl';
+      const minus = document.createElement('button');
+      minus.textContent = '−';
+      minus.disabled = t[key] <= 0;
+      minus.addEventListener('click', () => {
+        const nt = { defense: t.defense, speed: t.speed, attack: t.attack };
+        nt[key]--;
+        MP.setProfile(me.skin, nt);
+      });
+      const val = document.createElement('span');
+      val.className = 't-val';
+      val.textContent = t[key];
+      const plus = document.createElement('button');
+      plus.textContent = '+';
+      plus.disabled = remain <= 0;
+      plus.addEventListener('click', () => {
+        const nt = { defense: t.defense, speed: t.speed, attack: t.attack };
+        nt[key]++;
+        MP.setProfile(me.skin, nt);
+      });
+      ctrl.appendChild(minus);
+      ctrl.appendChild(val);
+      ctrl.appendChild(plus);
+      row.appendChild(ctrl);
+      box.appendChild(row);
+    });
+  },
+
+  // 联机对局开始
+  startMPGame(cfg) {
+    const mapData = cfg.mapData || getAllMaps().find(m => m.id === cfg.mapId);
+    if (!mapData) {
+      this.mpStatus('⚠ 地图数据缺失,无法开始');
+      return;
+    }
+    this.aiMode = false;
+    this.playerCount = 2;
+    this.mpMatch = cfg;
+
+    document.getElementById('game-overlay').classList.add('hidden');
+    document.getElementById('pause-overlay').classList.add('hidden');
+    document.getElementById('game-map-name').textContent = cfg.mapName || mapData.name || '联机对战';
+    document.getElementById('btn-rematch').style.display = 'none';
+    document.getElementById('btn-mp-back-room').style.display = '';
+    document.getElementById('btn-back-menu').style.display = 'none';
+    document.getElementById('btn-pause').style.display = 'none';
+
+    // 队伍配置(HUD 与引擎共用)
+    const teams = { 1: [], 2: [] };
+    for (const team of [1, 2]) {
+      for (const c of (cfg.teams[team] || [])) {
+        teams[team].push({
+          skin: c.skin,
+          color: this.teamColor(team),
+          talents: c.talents,
+          isHuman: !!c.isHuman,
+          ownerId: c.ownerId || null,
+          ownerNick: c.nick || null,
+          controls: c.ownerId ? MP.mpKeyMap(c.ownerId) : null,
+        });
+      }
+    }
+    this.team1 = teams[1];
+    this.team2 = teams[2];
+    this.buildGameHud();
+
+    const canvas = document.getElementById('game-canvas');
+    if (!this.game) {
+      this.game = new Game(canvas);
+    } else {
+      this.game.canvas = canvas;
+      this.game.ctx = canvas.getContext('2d');
+    }
+    const g = this.game;
+    g.onGameOver = (winner) => this.showMPGameOver(winner);
+    g.onHpChange = (hpList) => this.updateHpHud(hpList);
+    g.onState = (stateList) => this.updateStateHud(stateList);
+    g.onPlayerDied = null;
+    g.pendingTakeover = null;
+
+    RNG.seed(cfg.seed);
+    VRNG.seed(cfg.seed);
+    g.mpMode = true;
+    g.loadMap(mapData);
+    g.setupTanks(teams, {
+      bounce: !!(cfg.options && cfg.options.bounce),
+      powerups: cfg.options ? cfg.options.powerups !== false : true,
+      aiDifficulty: cfg.difficulty || 'normal',
+    });
+    g.stop();
+    this.go('screen-game');
+    g.startMP();
+    MP.startMatch(cfg, g);
+    setTimeout(() => this.fitCanvas(), 100);
+  },
+
+  showMPGameOver(winner) {
+    const overlay = document.getElementById('game-overlay');
+    const title = document.getElementById('overlay-title');
+    const text = document.getElementById('overlay-text');
+    const team = winner ? winner.player : 0;
+    title.textContent = team === 1 ? '红方获胜!' : team === 2 ? '蓝方获胜!' : '平局!';
+    title.style.color = team === 1 ? '#ef4444' : team === 2 ? '#3b82f6' : '#6366f1';
+    const survivors = team ? this.game.tanks.filter(t => t.player === team && t.alive).length : 0;
+    text.textContent = team ? `存活 ${survivors} 辆 · 本局结束,点击返回房间` : '双方同归于尽';
+    document.getElementById('btn-rematch').style.display = 'none';
+    document.getElementById('btn-back-menu').style.display = 'none';
+    document.getElementById('btn-mp-back-room').style.display = '';
+    overlay.classList.remove('hidden');
+    // 房主上报本局结果,房间进入 result 状态
+    if (MP.room && MP.room.hostId === MP.id) MP.roundEnd(team);
+  },
+
+  leaveMPGameView() {
+    MP.stopMatch();
+    if (this.game) {
+      this.game.stop();
+      this.game.mpMode = false;
+    }
+    document.getElementById('game-overlay').classList.add('hidden');
+    document.getElementById('btn-pause').style.display = '';
+    document.getElementById('btn-rematch').style.display = '';
+    document.getElementById('btn-back-menu').style.display = '';
+    document.getElementById('btn-mp-back-room').style.display = 'none';
   },
 };
 

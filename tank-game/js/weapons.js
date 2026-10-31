@@ -977,7 +977,7 @@ class Mine {
     this.radius = 8;           // 触发半径
     this.damage = 4;
     this.blastRadius = cell * 2;
-    this.t = Math.random() * Math.PI * 2;  // 闪烁动画相位
+    this.t = VRNG.random() * Math.PI * 2;  // 闪烁动画相位
   }
 
   update(game) {
@@ -1117,7 +1117,7 @@ class Flame {
     this.radius = 6;
     this.dead = false;
     this.life = 24;        // 火焰粒子存活帧(短,形成喷射流)
-    this.t = Math.random() * Math.PI * 2;
+    this.t = VRNG.random() * Math.PI * 2;
   }
 
   update(game) {

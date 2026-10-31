@@ -35,6 +35,7 @@ class Game {
     this.ais = [];               // 多 AI 实例
     this.aiDifficulty = 'normal';
     this.winningTeam = null;
+    this.mpMode = false;      // 联机模式:由网络 tick 驱动 update,不自动模拟
   }
 
   loadMap(mapData) {
@@ -97,9 +98,10 @@ class Game {
         } else {
           pos = spawns[i] || spawns[spawns.length - 1];
         }
+        const ctrl = cfg.controls || (player === 1 ? P1_KEYS : P2_KEYS);
         const t = new Tank(player, pos.x, pos.y, cfg.color, cfg.skin,
-          player === 1 ? P1_KEYS : P2_KEYS,
-          cfg.talents, !!cfg.isHuman, this.cell);
+          ctrl, cfg.talents, !!cfg.isHuman, this.cell);
+        t.ownerId = cfg.ownerId || null;
         t.indexInTeam = i;
         t.dir = player === 1 ? DIR.RIGHT : DIR.LEFT;
         this.tanks.push(t);
@@ -178,10 +180,60 @@ class Game {
 
   loop = (time) => {
     if (!this.running) return;
-    this.update();
+    if (!this.mpMode) this.update();
     this.render();
     this.rafId = requestAnimationFrame(this.loop);
   };
+
+  // 联机模式:只跑渲染循环,模拟由网络 tick 驱动(stepMP)
+  startMP() {
+    this.mpMode = true;
+    this.running = true;
+    this.lastTime = performance.now();
+    this.loop(this.lastTime);
+  }
+
+  // 应用某一 tick 的全部玩家输入
+  setMPInputs(inputs, events) {
+    for (const pid in (inputs || {})) {
+      const a = inputs[pid] || {};
+      const base = 'mp:' + pid + ':';
+      this.keys[base + 'up'] = !!a.up;
+      this.keys[base + 'down'] = !!a.down;
+      this.keys[base + 'left'] = !!a.left;
+      this.keys[base + 'right'] = !!a.right;
+      this.keys[base + 'fire'] = !!a.fire;
+      this.keys[base + 'skill'] = !!a.skill;
+      this.keys[base + 'grenade'] = !!a.grenade;
+      this.keys[base + 'missile'] = !!a.missile;
+    }
+    // 边沿事件:本帧强制按下,处理完再恢复
+    if (events && events.length) {
+      for (const ev of events) {
+        this.keys['mp:' + ev.pid + ':' + ev.action] = true;
+      }
+    }
+  }
+
+  // 联机单 tick:应用输入并推进一帧
+  stepMP(inputs, events) {
+    this.mpMode = true;
+    this.setMPInputs(inputs, events);
+    this.update();
+    if (events && events.length) this.setMPInputs(inputs, null);
+  }
+
+  // 同步校验用的状态指纹
+  mpHash() {
+    let h = 0;
+    for (const t of this.tanks) {
+      h = (h * 31 + Math.round(t.x) * 7 + Math.round(t.y) * 13 +
+        Math.round(Math.max(0, t.hp)) * 17 + (t.alive ? 1 : 0)) % 2147483647;
+    }
+    h = (h * 31 + this.bullets.length * 3 + this.grenades.length * 5 +
+      this.missiles.length * 7 + this.flames.length * 11) % 2147483647;
+    return h;
+  }
 
   update() {
     // 玩家死亡接管期间暂停模拟(等待 UI 选择)
@@ -262,8 +314,8 @@ class Game {
       }
     }
     if (candidates.length === 0) return;
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    const kind = POWERUP_KINDS[Math.floor(Math.random() * POWERUP_KINDS.length)];
+    const pick = candidates[Math.floor(RNG.random() * candidates.length)];
+    const kind = POWERUP_KINDS[Math.floor(RNG.random() * POWERUP_KINDS.length)];
     this.powerups.push(new PowerUp(pick.x, pick.y, kind, this.cell));
   }
 
@@ -305,8 +357,8 @@ class Game {
 
   onTankHit(tank, before, damage) {
     this.notifyHp();
-    // 检测玩家坦克死亡:之前还活着,现在 hp<=0
-    if (tank.isHuman && before > 0 && tank.hp <= 0) {
+    // 联机模式:不做死亡接管(会暂停模拟导致不同步),阵亡后观战
+    if (!this.mpMode && tank.isHuman && before > 0 && tank.hp <= 0) {
       // 等待玩家选择接管,暂停游戏
       this.pendingTakeover = tank;
       if (this.onPlayerDied) this.onPlayerDied(tank);

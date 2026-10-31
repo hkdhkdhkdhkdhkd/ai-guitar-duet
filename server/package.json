@@ -1,0 +1,13 @@
+{
+  "name": "tank-battle-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "坦克对战 2D 联机服务器 (WebSocket 房间 + 锁步同步)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
